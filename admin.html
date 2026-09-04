@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理后台 · 徒步预约</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏔️</text></svg>">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --green: #2d6a4f;
+      --green-light: #40916c;
+      --gray: #6c757d;
+      --bg: #f4f7f5;
+      --border: #dee2e6;
+      --text: #212529;
+      --red: #dc3545;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); }
+
+    /* ── Login ── */
+    #login-screen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #1b4332, #2d6a4f);
+    }
+    .login-box {
+      background: #fff; border-radius: 18px; padding: 44px 36px; width: 320px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.28); text-align: center;
+    }
+    .login-box .licon { font-size: 52px; margin-bottom: 14px; }
+    .login-box h2 { font-size: 22px; margin-bottom: 6px; }
+    .login-box p { color: var(--gray); font-size: 14px; margin-bottom: 24px; }
+    .login-box input {
+      width: 100%; padding: 12px 16px; border: 1.5px solid var(--border); border-radius: 9px;
+      font-size: 15px; text-align: center; letter-spacing: 3px; margin-bottom: 14px; font-family: inherit;
+    }
+    .login-box input:focus { outline: none; border-color: var(--green); }
+    .login-err { color: var(--red); font-size: 13px; margin: -8px 0 10px; display: none; }
+
+    /* ── Dashboard ── */
+    #dashboard { display: none; }
+    header {
+      background: var(--green); color: #fff; padding: 14px 22px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    }
+    .header-l { display: flex; align-items: center; gap: 11px; }
+    header h1 { font-size: 18px; font-weight: 700; }
+    nav {
+      display: flex; background: #fff; border-bottom: 1px solid var(--border);
+      padding: 0 22px; position: sticky; top: 53px; z-index: 40;
+    }
+    nav button {
+      padding: 13px 20px; border: none; background: none; font-size: 15px;
+      color: var(--gray); cursor: pointer; border-bottom: 3px solid transparent;
+      font-family: inherit; transition: color 0.2s;
+    }
+    nav button.active { color: var(--green); border-bottom-color: var(--green); font-weight: 600; }
+
+    main { padding: 20px; max-width: 1040px; margin: 0 auto; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── Stat cards ── */
+    .stats { display: flex; gap: 14px; margin-bottom: 22px; flex-wrap: wrap; }
+    .stat { background: #fff; border-radius: 12px; padding: 18px 22px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); min-width: 130px; }
+    .stat .n { font-size: 32px; font-weight: 700; color: var(--green); }
+    .stat .l { font-size: 13px; color: var(--gray); margin-top: 2px; }
+
+    /* ── Page header ── */
+    .pg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .pg-title { font-size: 17px; font-weight: 700; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 9px 18px; border-radius: 8px; font-size: 14px; font-weight: 600;
+      border: none; cursor: pointer; font-family: inherit; transition: all 0.18s;
+    }
+    .btn-green { background: var(--green); color: #fff; }
+    .btn-green:hover { background: var(--green-light); }
+    .btn-gray  { background: #e9ecef; color: var(--text); }
+    .btn-gray:hover { background: #d6dadf; }
+    .btn-red   { background: var(--red); color: #fff; }
+    .btn-red:hover { background: #c82333; }
+    .btn-sm    { padding: 6px 12px; font-size: 13px; }
+    .btn-ghost { background: none; color: var(--green); border: 1.5px solid var(--green); }
+    .btn-ghost:hover { background: var(--green); color: #fff; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    th { background: #f0f4f2; color: var(--gray); padding: 11px 15px; text-align: left; font-size: 13px; font-weight: 600; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 12px 15px; font-size: 14px; border-bottom: 1px solid #f0f2f1; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .act-row { display: flex; gap: 7px; flex-wrap: wrap; }
+
+    /* ── Badges ── */
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+    .badge-open   { background: #d4edda; color: #155724; }
+    .badge-closed { background: #f8d7da; color: #721c24; }
+    .badge-past   { background: #e9ecef; color: #6c757d; }
+
+    /* ── Filter bar ── */
+    .filter-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+    .filter-row select {
+      padding: 9px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 14px; font-family: inherit; min-width: 200px; flex: 1;
+    }
+    .filter-row select:focus { outline: none; border-color: var(--green); }
+
+    /* ── Modal ── */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.48); z-index: 200; align-items: center; justify-content: center; padding: 16px; }
+    .overlay.show { display: flex; }
+    .modal { background: #fff; border-radius: 18px; width: 100%; max-width: 580px; max-height: 92vh; overflow-y: auto; }
+    .modal-head { padding: 20px 22px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .modal-head h2 { font-size: 18px; font-weight: 700; }
+    .x-btn { width: 32px; height: 32px; border-radius: 50%; border: none; background: #f0f0f0; font-size: 17px; cursor: pointer; }
+    .modal-body { padding: 22px; }
+    .modal-foot { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ── Form grid ── */
+    .fg { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .fg-full { grid-column: 1 / -1; }
+    .f-group label { display: block; font-size: 13px; font-weight: 600; color: var(--gray); margin-bottom: 6px; }
+    .f-group input, .f-group select, .f-group textarea {
+      width: 100%; padding: 10px 13px; border: 1.5px solid var(--border);
+      border-radius: 8px; font-size: 14px; font-family: inherit;
+    }
+    .f-group input:focus, .f-group select:focus, .f-group textarea:focus { outline: none; border-color: var(--green); }
+    .f-group textarea { resize: vertical; }
+    .f-check { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .f-check input { width: auto; }
+
+    /* ── 图片上传预览 ── */
+    .img-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .img-thumb-wrap { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
+    .img-thumb-wrap img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--border); display: block; }
+    .img-thumb-rm { position: absolute; top: -5px; right: -5px; width: 18px; height: 18px; border-radius: 50%; background: var(--red); color: #fff; border: none; cursor: pointer; font-size: 11px; line-height: 18px; text-align: center; padding: 0; }
+    .img-upload-lbl { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1.5px dashed var(--border); border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--gray); transition: border-color 0.2s; }
+    .img-upload-lbl:hover { border-color: var(--green); color: var(--green); }
+    .sugg-imgs { display: flex; gap: 6px; margin-top: 6px; }
+    .sugg-imgs img { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; cursor: zoom-in; }
+
+    /* ── Misc ── */
+    .alert { padding: 11px 15px; border-radius: 9px; font-size: 14px; margin-bottom: 14px; }
+    .alert-ok  { background: #d4edda; color: #155724; }
+    .alert-err { background: #f8d7da; color: #721c24; }
+    .empty { text-align: center; padding: 44px 20px; color: var(--gray); font-size: 14px; }
+    .loading-msg { text-align: center; padding: 44px 20px; color: var(--gray); }
+
+    @media (max-width: 600px) {
+      .fg { grid-template-columns: 1fr; }
+      .stats { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- 登录界面 -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="licon">🔐</div>
+    <h2>管理员登录</h2>
+    <p>请输入管理密码</p>
+    <input type="password" id="pwd-input" placeholder="密码"
+      onkeydown="if(event.key==='Enter') doLogin()">
+    <div class="login-err" id="login-err">密码错误，请重试</div>
+    <button class="btn btn-green" style="width:100%;justify-content:center" onclick="doLogin()">登 录</button>
+  </div>
+</div>
+
+<!-- 管理后台 -->
+<div id="dashboard">
+  <header style="justify-content:center;position:relative">
+    <h1>🏔️ 豪姐姐徒步后台</h1>
+    <button class="btn btn-gray btn-sm" onclick="doLogout()" style="position:absolute;right:22px">退出登录</button>
+  </header>
+
+  <nav>
+    <button class="active" data-tab="acts" onclick="switchTab(this)">活动管理</button>
+    <button data-tab="res"  onclick="switchTab(this)">预约管理</button>
+    <button data-tab="sugg" onclick="switchTab(this)">路线建议</button>
+  </nav>
+
+  <main>
+    <!-- 活动管理 -->
+    <div id="tab-acts" class="tab-content active">
+      <div class="stats" id="stats-area"></div>
+      <div class="pg-head">
+        <div class="pg-title">全部活动</div>
+        <button class="btn btn-green" onclick="openActModal()">＋ 发布新活动</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>活动名称</th><th>时间</th><th>地点</th><th>报名</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody id="acts-body"><tr><td colspan="6" class="loading-msg">加载中…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 路线建议 -->
+    <div id="tab-sugg" class="tab-content">
+      <div class="pg-head">
+        <div class="pg-title">用户路线建议</div>
+        <div style="display:flex;gap:8px">
+          <select id="sugg-filter" onchange="loadSugg()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit">
+            <option value="pending">待审核</option>
+            <option value="approved">已发布</option>
+            <option value="rejected">已拒绝</option>
+            <option value="">全部</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>路线名称</th><th>地点</th><th>难度</th><th>描述</th><th>推荐人</th><th>手机号</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody id="sugg-body"><tr><td colspan="8" class="loading-msg">加载中…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 预约管理 -->
+    <div id="tab-res" class="tab-content">
+      <div class="pg-head">
+        <div class="pg-title">预约记录</div>
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ 导出 CSV</button>
+      </div>
+      <div class="filter-row">
+        <select id="act-filter" onchange="loadRes()">
+          <option value="">全部活动</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>活动名称</th><th>姓名</th><th>性别</th><th>手机号或微信</th><th>紧急联系人</th><th>住址大致位置</th><th>报名时间</th><th>操作</th></tr></thead>
+          <tbody id="res-body"><tr><td colspan="6" class="loading-msg">加载中…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 活动编辑弹窗 -->
+<div class="overlay" id="act-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="act-modal-title">发布新活动</h2>
+      <button class="x-btn" onclick="closeActModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="act-alert"></div>
+      <div class="fg">
+        <div class="f-group fg-full">
+          <label>活动名称 *</label>
+          <input type="text" id="a-name" placeholder="如：周末南山徒步">
+        </div>
+        <div class="f-group">
+          <label>活动时间 *</label>
+          <input type="datetime-local" id="a-time">
+        </div>
+        <div class="f-group">
+          <label>人数上限 *</label>
+          <input type="number" id="a-max" placeholder="20" min="1">
+        </div>
+        <div class="f-group">
+          <label>地点 *</label>
+          <input type="text" id="a-location" placeholder="如：广州南山">
+        </div>
+        <div class="f-group">
+          <label>集合地点 *</label>
+          <input type="text" id="a-meeting" placeholder="如：地铁南山站A出口">
+        </div>
+        <div class="f-group">
+          <label>路线难度 *</label>
+          <select id="a-diff">
+            <option value="简单">简单</option>
+            <option value="中等" selected>中等</option>
+            <option value="困难">困难</option>
+            <option value="专家">专家</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <label>费用（元，0 为免费）</label>
+          <input type="number" id="a-cost" placeholder="0" min="0" value="0">
+        </div>
+        <div class="f-group fg-full">
+          <label>注意事项</label>
+          <textarea id="a-notes" rows="3" placeholder="装备要求、天气提示等…"></textarea>
+        </div>
+        <div class="f-group fg-full">
+          <label>活动图片（最多3张）</label>
+          <div class="img-preview" id="a-img-preview"></div>
+          <label class="img-upload-lbl" id="a-img-lbl">
+            📷 选择图片
+            <input type="file" id="a-imgs" accept="image/*" multiple style="display:none" onchange="handleImgSelect(this,'a-img-preview','a-img-lbl',3)">
+          </label>
+          <div style="font-size:12px;color:#aaa;margin-top:6px">支持 JPG/PNG，自动压缩上传</div>
+        </div>
+        <div class="f-group fg-full">
+          <label class="f-check">
+            <input type="checkbox" id="a-open" checked> 开放报名
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-gray" onclick="closeActModal()">取消</button>
+      <button class="btn btn-green" id="save-act-btn" onclick="saveAct()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  配置区（填入你的 Supabase 信息 & 管理密码）
+// ═══════════════════════════════════════
+const SUPABASE_URL      = 'https://xamzhpmanhkflpodrmyp.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhbXpocG1hbmhrZmxwb2RybXlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MTg4NzIsImV4cCI6MjEwMzk5NDg3Mn0.7NDbpH_DGjvcWMaAl2kQQGXgoOUkDNOWNi2sY4QcPDc'
+const ADMIN_PWD         = 'kevin2003'
+// ═══════════════════════════════════════
+
+const sb = SUPABASE_URL !== 'YOUR_SUPABASE_URL'
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null
+let allActs = []
+let allRes  = []
+let editId  = null   // 当前编辑的活动 id（null = 新建）
+
+// ── 登录 ──────────────────────────────
+function doLogin() {
+  const v = document.getElementById('pwd-input').value
+  if (v === ADMIN_PWD) {
+    sessionStorage.setItem('hk_admin', '1')
+    document.getElementById('login-screen').style.display = 'none'
+    document.getElementById('dashboard').style.display = 'block'
+    loadAll()
+  } else {
+    document.getElementById('login-err').style.display = 'block'
+  }
+}
+function doLogout() { sessionStorage.removeItem('hk_admin'); location.reload() }
+
+if (sessionStorage.getItem('hk_admin') === '1') {
+  document.getElementById('login-screen').style.display = 'none'
+  document.getElementById('dashboard').style.display = 'block'
+  loadAll()
+}
+
+// ── Tab ────────────────────────────────
+function switchTab(btn) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'))
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'))
+  btn.classList.add('active')
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active')
+}
+
+// ── 图片压缩 & 上传 ────────────────────
+let imgFiles    = []   // 新选文件
+let existingImgs = []  // 已有 URL
+
+async function compressImage(file) {
+  return new Promise(resolve => {
+    const img = new Image()
+    const burl = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(burl)
+      const maxPx = 1200
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height))
+      const c = document.createElement('canvas')
+      c.width = Math.round(img.width * scale)
+      c.height = Math.round(img.height * scale)
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
+      c.toBlob(blob => resolve(blob), 'image/jpeg', 0.82)
+    }
+    img.src = burl
+  })
+}
+
+async function uploadImages(files, folder) {
+  if (!sb || !files.length) return []
+  const urls = []
+  for (const file of files) {
+    const blob = await compressImage(file)
+    const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`
+    const { error } = await sb.storage.from('route-images').upload(path, blob, { contentType: 'image/jpeg' })
+    if (!error) {
+      const { data } = sb.storage.from('route-images').getPublicUrl(path)
+      urls.push(data.publicUrl)
+    }
+  }
+  return urls
+}
+
+function handleImgSelect(input, previewId, lblId, max) {
+  const remaining = max - existingImgs.length - imgFiles.length
+  imgFiles = [...imgFiles, ...Array.from(input.files)].slice(0, imgFiles.length + Math.max(0, remaining))
+  input.value = ''
+  renderImgPreview(previewId, lblId, max)
+}
+
+function removeExistingImg(i, previewId, lblId, max) {
+  existingImgs.splice(i, 1)
+  renderImgPreview(previewId, lblId, max)
+}
+
+function removeNewImg(i, previewId, lblId, max) {
+  imgFiles.splice(i, 1)
+  renderImgPreview(previewId, lblId, max)
+}
+
+function renderImgPreview(previewId, lblId, max) {
+  const el = document.getElementById(previewId)
+  if (!el) return
+  const existHtml = existingImgs.map((url, i) => `
+    <div class="img-thumb-wrap">
+      <img src="${url}">
+      <button type="button" class="img-thumb-rm" onclick="removeExistingImg(${i},'${previewId}','${lblId}',${max})">✕</button>
+    </div>`).join('')
+  const newHtml = imgFiles.map((f, i) => {
+    const url = URL.createObjectURL(f)
+    return `<div class="img-thumb-wrap">
+      <img src="${url}">
+      <button type="button" class="img-thumb-rm" onclick="removeNewImg(${i},'${previewId}','${lblId}',${max})">✕</button>
+    </div>`
+  }).join('')
+  el.innerHTML = existHtml + newHtml
+  const lbl = document.getElementById(lblId)
+  if (lbl) lbl.style.display = (existingImgs.length + imgFiles.length >= max) ? 'none' : 'inline-flex'
+}
+
+// ── 加载数据 ──────────────────────────
+async function loadAll() {
+  await Promise.all([loadActs(), loadRes(), loadSugg()])
+}
+
+async function loadActs() {
+  if (!sb) {
+    document.getElementById('stats-area').innerHTML = '<div class="stat"><div class="n" style="font-size:14px;color:#c0392b">未配置 Supabase</div><div class="l">请填入 URL 和 Key</div></div>'
+    document.getElementById('acts-body').innerHTML = '<tr><td colspan="6" class="empty">请先配置 Supabase 数据库连接</td></tr>'
+    return
+  }
+  const [{ data: acts, error }, { data: res }] = await Promise.all([
+    sb.from('activities').select('*').order('activity_time', { ascending: false }),
+    sb.from('reservations').select('activity_id')
+  ])
+  if (error) { document.getElementById('acts-body').innerHTML = '<tr><td colspan="6" class="alert-err" style="text-align:center">加载失败</td></tr>'; return }
+
+  allActs = acts || []
+  const counts = {}
+  ;(res || []).forEach(r => { counts[r.activity_id] = (counts[r.activity_id] || 0) + 1 })
+  allActs.forEach(a => { a._count = counts[a.id] || 0 })
+
+  const now      = new Date()
+  const upcoming = allActs.filter(a => new Date(a.activity_time) >= now).length
+
+  document.getElementById('stats-area').innerHTML = `
+    <div class="stat"><div class="n">${allActs.length}</div><div class="l">总活动数</div></div>
+    <div class="stat"><div class="n">${upcoming}</div><div class="l">即将开始</div></div>
+    <div class="stat"><div class="n">${(res||[]).length}</div><div class="l">总报名数</div></div>
+  `
+
+  if (!allActs.length) {
+    document.getElementById('acts-body').innerHTML = '<tr><td colspan="6" class="empty">暂无活动，点击右上角"发布新活动"开始</td></tr>'
+    return
+  }
+
+  document.getElementById('acts-body').innerHTML = allActs.map(a => {
+    const past = new Date(a.activity_time) < now
+    const statusBadge = past
+      ? '<span class="badge badge-past">已结束</span>'
+      : a.is_accepting
+        ? '<span class="badge badge-open">报名中</span>'
+        : '<span class="badge badge-closed">已关闭</span>'
+    return `<tr>
+      <td><b>${a.name}</b></td>
+      <td style="white-space:nowrap">${fmt(a.activity_time)}</td>
+      <td>${a.location}</td>
+      <td>${a._count} / ${a.max_participants}</td>
+      <td>${statusBadge}</td>
+      <td>
+        <div class="act-row">
+          <button class="btn btn-gray btn-sm" onclick="openActModal('${a.id}')">编辑</button>
+          <button class="btn btn-red  btn-sm" onclick="delAct('${a.id}','${a.name.replace(/'/g,"\\'") }')">删除</button>
+        </div>
+      </td>
+    </tr>`
+  }).join('')
+
+  // 更新预约管理的活动筛选下拉
+  const sel = document.getElementById('act-filter')
+  sel.innerHTML = '<option value="">全部活动</option>' +
+    allActs.map(a => `<option value="${a.id}">${a.name}</option>`).join('')
+}
+
+async function loadRes() {
+  if (!sb) {
+    document.getElementById('res-body').innerHTML = '<tr><td colspan="6" class="empty">请先配置 Supabase 数据库连接</td></tr>'
+    return
+  }
+  const actId = document.getElementById('act-filter')?.value || ''
+  let q = sb.from('reservations').select('*, activities(name, activity_time)').order('created_at', { ascending: false })
+  if (actId) q = q.eq('activity_id', actId)
+  const { data, error } = await q
+  if (error) { document.getElementById('res-body').innerHTML = '<tr><td colspan="6" class="empty">加载失败</td></tr>'; return }
+
+  allRes = data || []
+  if (!allRes.length) {
+    document.getElementById('res-body').innerHTML = '<tr><td colspan="6" class="empty">暂无预约记录</td></tr>'; return
+  }
+  document.getElementById('res-body').innerHTML = allRes.map(r => `<tr>
+    <td>${r.activities?.name || '-'}</td>
+    <td>${r.name}</td>
+    <td>${r.gender || '-'}</td>
+    <td>${r.phone}</td>
+    <td>${r.emergency_contact || '-'}</td>
+    <td>${r.address || '-'}</td>
+    <td style="white-space:nowrap">${fmtShort(r.created_at)}</td>
+    <td><button class="btn btn-red btn-sm" onclick="delRes('${r.id}','${r.name.replace(/'/g,"\\'")}')">取消</button></td>
+  </tr>`).join('')
+}
+
+// ── 活动 CRUD ─────────────────────────
+function openActModal(id) {
+  editId = id || null
+  document.getElementById('act-modal-title').textContent = id ? '编辑活动' : '发布新活动'
+  document.getElementById('act-alert').innerHTML = ''
+  imgFiles = []; existingImgs = []
+
+  if (id) {
+    const a = allActs.find(x => x.id === id)
+    if (a) {
+      document.getElementById('a-name').value     = a.name
+      document.getElementById('a-time').value     = new Date(new Date(a.activity_time) - new Date().getTimezoneOffset()*60000).toISOString().slice(0, 16)
+      document.getElementById('a-location').value = a.location
+      document.getElementById('a-meeting').value  = a.meeting_point
+      document.getElementById('a-diff').value     = a.difficulty
+      document.getElementById('a-cost').value     = a.cost
+      document.getElementById('a-max').value      = a.max_participants
+      document.getElementById('a-notes').value    = a.notes || ''
+      document.getElementById('a-open').checked   = a.is_accepting
+      existingImgs = a.images ? [...a.images] : []
+    }
+  } else {
+    document.getElementById('a-name').value     = ''
+    document.getElementById('a-time').value     = ''
+    document.getElementById('a-location').value = ''
+    document.getElementById('a-meeting').value  = ''
+    document.getElementById('a-diff').value     = '中等'
+    document.getElementById('a-cost').value     = '0'
+    document.getElementById('a-max').value      = ''
+    document.getElementById('a-notes').value    = ''
+    document.getElementById('a-open').checked   = true
+  }
+  renderImgPreview('a-img-preview', 'a-img-lbl', 3)
+  document.getElementById('act-modal').classList.add('show')
+}
+
+function closeActModal() {
+  document.getElementById('act-modal').classList.remove('show')
+  delete document.getElementById('act-modal').dataset.suggId
+}
+
+async function saveAct() {
+  const name    = document.getElementById('a-name').value.trim()
+  const time    = new Date(document.getElementById('a-time').value).toISOString()
+  const loc     = document.getElementById('a-location').value.trim()
+  const meet    = document.getElementById('a-meeting').value.trim()
+  const diff    = document.getElementById('a-diff').value
+  const cost    = parseFloat(document.getElementById('a-cost').value) || 0
+  const maxP    = parseInt(document.getElementById('a-max').value)
+  const notes   = document.getElementById('a-notes').value.trim()
+  const isOpen  = document.getElementById('a-open').checked
+  const alertEl = document.getElementById('act-alert')
+
+  if (!name || !time || !loc || !meet || !maxP) {
+    alertEl.innerHTML = '<div class="alert alert-err">请填写所有带 * 的必填项</div>'; return
+  }
+  if (!sb) {
+    alertEl.innerHTML = '<div class="alert alert-err">请先在代码里配置 Supabase URL 和 Key</div>'
+    return
+  }
+
+  const btn = document.getElementById('save-act-btn')
+  btn.disabled = true; btn.textContent = '上传图片中…'
+
+  const newUrls = await uploadImages(imgFiles, 'activities')
+  const images  = [...existingImgs, ...newUrls]
+
+  btn.textContent = '保存中…'
+  const payload = { name, activity_time: time, location: loc, meeting_point: meet, difficulty: diff, cost, max_participants: maxP, notes, is_accepting: isOpen, images }
+  const { error } = editId
+    ? await sb.from('activities').update(payload).eq('id', editId)
+    : await sb.from('activities').insert(payload)
+
+  btn.disabled = false; btn.textContent = '保存'
+  if (error) { alertEl.innerHTML = `<div class="alert alert-err">保存失败：${error.message}</div>`; return }
+
+  // 若是从路线建议发布，标记为已发布
+  const suggId = document.getElementById('act-modal').dataset.suggId
+  if (suggId) {
+    await sb.from('route_suggestions').update({ status: 'approved' }).eq('id', suggId)
+    delete document.getElementById('act-modal').dataset.suggId
+  }
+
+  closeActModal(); loadAll()
+}
+
+async function delAct(id, name) {
+  if (!confirm(`确认删除活动「${name}」？\n同时会删除该活动的所有报名记录，不可恢复！`)) return
+  const { error } = await sb.from('activities').delete().eq('id', id)
+  if (error) { alert('删除失败：' + error.message); return }
+  loadAll()
+}
+
+async function delRes(id, name) {
+  if (!confirm(`确认取消「${name}」的报名？`)) return
+  const { error } = await sb.from('reservations').delete().eq('id', id)
+  if (error) { alert('操作失败：' + error.message); return }
+  loadRes()
+}
+
+// ── 导出 CSV ──────────────────────────
+function exportCSV() {
+  if (!sb) { alert('请先配置 Supabase，才能导出真实数据'); return }
+  if (!allRes.length) { alert('当前没有可导出的记录'); return }
+  const rows = [['活动名称', '姓名', '性别', '手机号或微信', '紧急联系人', '住址大致位置', '报名时间']]
+  allRes.forEach(r => rows.push([r.activities?.name || '', r.name, r.gender || '', r.phone, r.emergency_contact || '', r.address || '', fmtShort(r.created_at)]))
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href = url; a.download = `预约记录_${new Date().toLocaleDateString('zh-CN')}.csv`; a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ── 路线建议 ──────────────────────────
+async function loadSugg() {
+  if (!sb) {
+    document.getElementById('sugg-body').innerHTML = '<tr><td colspan="8" class="empty">请先配置 Supabase 数据库连接</td></tr>'
+    return
+  }
+  const status = document.getElementById('sugg-filter')?.value
+  let q = sb.from('route_suggestions').select('*').order('created_at', { ascending: false })
+  if (status) q = q.eq('status', status)
+  const { data, error } = await q
+  if (error) { document.getElementById('sugg-body').innerHTML = '<tr><td colspan="8" class="empty">加载失败</td></tr>'; return }
+
+  const rows = data || []
+  if (!rows.length) {
+    document.getElementById('sugg-body').innerHTML = '<tr><td colspan="8" class="empty">暂无记录</td></tr>'; return
+  }
+
+  const statusMap = {
+    pending:  '<span class="badge badge-open">待审核</span>',
+    approved: '<span class="badge" style="background:#cfe2ff;color:#084298">已推荐上线</span>',
+    rejected: '<span class="badge badge-past">已拒绝</span>'
+  }
+
+  document.getElementById('sugg-body').innerHTML = rows.map(s => {
+    const imgHtml = (s.images && s.images.length)
+      ? `<div class="sugg-imgs">${s.images.map(u => `<img src="${u}" onclick="window.open('${u}')" title="点击查看原图">`).join('')}</div>`
+      : ''
+    const pendingBtns = s.status === 'pending' ? `
+      <button class="btn btn-green btn-sm" onclick="approveSugg('${s.id}')">推荐上线</button>
+      <button class="btn btn-ghost btn-sm" onclick="publishSugg('${s.id}')">发布为活动</button>
+      <button class="btn btn-gray btn-sm" onclick="rejectSugg('${s.id}')">拒绝</button>` : ''
+    const approvedBtns = s.status === 'approved' ? `
+      <button class="btn btn-ghost btn-sm" onclick="publishSugg('${s.id}')">发布为活动</button>` : ''
+    return `<tr>
+    <td><b>${s.name}</b></td>
+    <td>${s.location}</td>
+    <td>${s.difficulty}</td>
+    <td style="max-width:200px"><div style="white-space:pre-wrap;word-break:break-all">${s.description || '-'}</div>${imgHtml}</td>
+    <td>${s.submitter}</td>
+    <td>${s.phone}</td>
+    <td>${statusMap[s.status] || s.status}</td>
+    <td>
+      <div class="act-row">
+        ${pendingBtns}${approvedBtns}
+        <button class="btn btn-red btn-sm" onclick="delSugg('${s.id}','${s.name.replace(/'/g,"\\'")}')">删除</button>
+      </div>
+    </td>
+  </tr>`
+  }).join('')
+}
+
+function publishSugg(id) {
+  if (!sb) return
+  sb.from('route_suggestions').select('*').eq('id', id).single().then(({ data: s }) => {
+    if (!s) return
+    // 预填活动创建弹窗
+    openActModal()
+    document.getElementById('a-name').value     = s.name
+    document.getElementById('a-location').value = s.location
+    document.getElementById('a-diff').value     = s.difficulty
+    document.getElementById('a-notes').value    = s.description || ''
+    // 保存草稿 id 以便保存时标记已发布
+    document.getElementById('act-modal').dataset.suggId = id
+    document.getElementById('act-modal-title').textContent = '从路线建议发布活动'
+  })
+}
+
+async function approveSugg(id) {
+  const { error } = await sb.from('route_suggestions').update({ status: 'approved' }).eq('id', id)
+  if (error) { alert('操作失败：' + error.message); return }
+  loadSugg()
+}
+
+async function rejectSugg(id) {
+  if (!confirm('确认拒绝此路线建议？')) return
+  const { error } = await sb.from('route_suggestions').update({ status: 'rejected' }).eq('id', id)
+  if (error) { alert('操作失败：' + error.message); return }
+  loadSugg()
+}
+
+async function delSugg(id, name) {
+  if (!confirm(`确认删除路线建议「${name}」？`)) return
+  const { error } = await sb.from('route_suggestions').delete().eq('id', id)
+  if (error) { alert('删除失败：' + error.message); return }
+  loadSugg()
+}
+
+// ── 工具 ──────────────────────────────
+function fmt(ts) {
+  const d = new Date(ts)
+  return d.toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'short' })
+       + ' ' + d.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' })
+}
+function fmtShort(ts) {
+  return new Date(ts).toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+}
+</script>
+</body>
+</html>

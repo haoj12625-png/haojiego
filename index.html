@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>徒步活动预约</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏔️</text></svg>">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --green: #2d6a4f;
+      --green-light: #40916c;
+      --green-bg: #d8f3dc;
+      --gray: #6c757d;
+      --bg: #f4f7f5;
+      --white: #fff;
+      --border: #dee2e6;
+      --text: #212529;
+      --red: #dc3545;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Header ── */
+    header {
+      background: var(--green);
+      color: #fff;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    header .icon { font-size: 30px; }
+    header h1 { font-size: 20px; font-weight: 700; }
+    header .sub { font-size: 13px; opacity: 0.8; }
+
+    /* ── Nav ── */
+    nav {
+      display: flex;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      position: sticky;
+      top: 66px;
+      z-index: 40;
+    }
+    nav button {
+      padding: 14px 20px;
+      border: none;
+      background: none;
+      font-size: 15px;
+      color: var(--gray);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      font-family: inherit;
+      transition: color 0.2s;
+    }
+    nav button.active { color: var(--green); border-bottom-color: var(--green); font-weight: 600; }
+
+    /* ── Main ── */
+    main { padding: 20px; max-width: 860px; margin: 0 auto; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .section-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 24px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--border);
+    }
+    .section-label:first-child { margin-top: 4px; }
+
+    /* ── Cards ── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+    .card-head { background: var(--green); color: #fff; padding: 16px 18px; }
+    .card-title { font-size: 17px; font-weight: 700; margin-bottom: 5px; }
+    .card-time { font-size: 13px; opacity: 0.88; }
+    .card-body { padding: 16px 18px; display: grid; gap: 8px; }
+    .info { font-size: 14px; color: var(--gray); display: flex; align-items: flex-start; gap: 7px; line-height: 1.4; }
+    .info em { color: var(--text); font-style: normal; }
+    .badge {
+      display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 12px; font-weight: 600;
+    }
+    .badge-easy   { background: #d4edda; color: #155724; }
+    .badge-medium { background: #fff3cd; color: #856404; }
+    .badge-hard   { background: #ffe5d0; color: #c0392b; }
+    .badge-expert { background: #f8d7da; color: #721c24; }
+    .badge-five   { background: #1a1a2e; color: #ffd700; letter-spacing: 1px; }
+    .progress-wrap { height: 5px; background: #e9ecef; border-radius: 3px; margin-top: 2px; }
+    .progress-bar  { height: 100%; background: var(--green-light); border-radius: 3px; transition: width 0.4s; }
+    .progress-bar.full { background: var(--red); }
+    .card-foot { padding: 0 18px 16px; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      padding: 10px 20px; border-radius: 9px; font-size: 14px; font-weight: 600;
+      border: none; cursor: pointer; font-family: inherit; transition: all 0.18s;
+    }
+    .btn-block { width: 100%; }
+    .btn-green  { background: var(--green); color: #fff; }
+    .btn-green:hover:not(:disabled) { background: var(--green-light); }
+    .btn-green:disabled { background: #adb5bd; cursor: not-allowed; }
+    .btn-gray   { background: #e9ecef; color: var(--text); }
+    .btn-gray:hover { background: #d6dadf; }
+    .btn-red    { background: var(--red); color: #fff; }
+    .btn-red:hover { background: #c82333; }
+
+    /* ── My Reservations ── */
+    .search-row { display: flex; gap: 10px; margin-bottom: 20px; }
+    .search-row input {
+      flex: 1; padding: 12px 16px; border: 1.5px solid var(--border);
+      border-radius: 9px; font-size: 15px; font-family: inherit;
+    }
+    .search-row input:focus { outline: none; border-color: var(--green); }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    th { background: var(--green); color: #fff; padding: 11px 16px; text-align: left; font-size: 13px; font-weight: 600; white-space: nowrap; }
+    td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #f2f4f3; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+
+    /* ── Modal ── */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.48); z-index: 200; align-items: center; justify-content: center; padding: 16px; }
+    .overlay.show { display: flex; }
+    .modal { background: #fff; border-radius: 18px; width: 100%; max-width: 500px; max-height: 92vh; overflow-y: auto; }
+    .modal-head { padding: 20px 22px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .modal-head h2 { font-size: 18px; font-weight: 700; }
+    .x-btn { width: 32px; height: 32px; border-radius: 50%; border: none; background: #f0f0f0; font-size: 17px; cursor: pointer; flex-shrink: 0; }
+    .modal-body { padding: 20px 22px; }
+    .modal-foot { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ── Detail rows in modal ── */
+    .detail-grid { display: grid; gap: 10px; margin-bottom: 20px; }
+    .detail-row { font-size: 14px; display: flex; gap: 8px; align-items: flex-start; line-height: 1.5; }
+    .detail-row b { color: var(--gray); font-weight: 600; white-space: nowrap; }
+
+    /* ── Form ── */
+    .form-sep { border-top: 1px solid var(--border); margin: 20px 0 20px; padding-top: 18px; }
+    .form-sep .form-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--gray); margin-bottom: 6px; }
+    .form-group input {
+      width: 100%; padding: 11px 14px; border: 1.5px solid var(--border);
+      border-radius: 9px; font-size: 14px; font-family: inherit;
+    }
+    .form-group input:focus { outline: none; border-color: var(--green); }
+
+    /* ── Alerts ── */
+    .alert { padding: 11px 15px; border-radius: 9px; font-size: 14px; margin-bottom: 14px; line-height: 1.5; }
+    .alert-ok  { background: #d4edda; color: #155724; }
+    .alert-err { background: #f8d7da; color: #721c24; }
+
+    /* ── States ── */
+    .empty { text-align: center; padding: 48px 20px; color: var(--gray); }
+    .empty .eicon { font-size: 50px; margin-bottom: 12px; }
+    .loading-msg { text-align: center; padding: 48px 20px; color: var(--gray); font-size: 15px; }
+
+    /* ── 往期活动列表 ── */
+    .past-list { display: flex; flex-direction: column; gap: 10px; }
+    .past-item {
+      background: #fff; border-radius: 10px; padding: 14px 18px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    .past-item .past-name { font-size: 15px; font-weight: 700; color: var(--gray); min-width: 120px; flex: 1; }
+    .past-item .past-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: #999; }
+    .past-item .past-tag {
+      background: #e9ecef; color: #6c757d; font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 8px; white-space: nowrap;
+    }
+
+    /* ── 图片上传预览 ── */
+    .img-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .img-thumb-wrap { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
+    .img-thumb-wrap img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--border); display: block; }
+    .img-thumb-rm { position: absolute; top: -5px; right: -5px; width: 18px; height: 18px; border-radius: 50%; background: var(--red); color: #fff; border: none; cursor: pointer; font-size: 11px; line-height: 18px; text-align: center; padding: 0; }
+    .img-upload-lbl { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1.5px dashed var(--border); border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--gray); transition: border-color 0.2s; }
+    .img-upload-lbl:hover { border-color: var(--green); color: var(--green); }
+    /* ── 活动卡片图片 ── */
+    .card-img { width: 100%; height: 150px; object-fit: cover; display: block; }
+    /* ── 详情弹窗图片展示 ── */
+    .img-gallery { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .img-gallery img { flex: 1; min-width: 120px; max-height: 200px; object-fit: cover; border-radius: 10px; cursor: zoom-in; }
+
+    @media (max-width: 600px) {
+      main { padding: 12px; }
+      .cards { grid-template-columns: 1fr; }
+      nav button { padding: 12px 14px; font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🏔️ 豪姐姐叫你去巡山</h1>
+  <div class="sub">报名参与精彩户外活动</div>
+</header>
+
+<nav>
+  <button class="active" data-tab="activities" onclick="switchTab(this)">活动列表</button>
+  <button data-tab="past" onclick="switchTab(this)">往期活动</button>
+  <button data-tab="suggest" onclick="switchTab(this)">推荐路线</button>
+  <button data-tab="mine" onclick="switchTab(this)">我的预约</button>
+</nav>
+
+<main>
+  <!-- 活动列表 -->
+  <div id="tab-activities" class="tab-content active">
+    <div class="section-label">📅 即将开始的活动</div>
+    <div id="upcoming-area"><div class="loading-msg">加载中…</div></div>
+  </div>
+
+  <!-- 往期活动 -->
+  <div id="tab-past" class="tab-content">
+    <div class="section-label">📚 往期活动</div>
+    <div id="past-area"><div class="loading-msg">加载中…</div></div>
+  </div>
+
+  <!-- 推荐路线 -->
+  <div id="tab-suggest" class="tab-content">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="section-label" style="margin:0;border:none">🗺️ 群友推荐路线</div>
+      <button class="btn btn-green" onclick="openSuggestModal()">＋ 推荐一条路线</button>
+    </div>
+    <div id="routes-area"><div class="loading-msg">加载中…</div></div>
+  </div>
+
+  <!-- 我的预约 -->
+  <div id="tab-mine" class="tab-content">
+    <div class="search-row">
+      <input type="tel" id="phoneInput" placeholder="请输入手机号查询预约" maxlength="11"
+        onkeydown="if(event.key==='Enter') queryMine()">
+      <button class="btn btn-green" onclick="queryMine()">查询</button>
+    </div>
+    <div id="mine-result"></div>
+  </div>
+</main>
+
+<!-- 推荐路线弹窗 -->
+<div class="overlay" id="suggest-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>📍 推荐一条路线</h2>
+      <button class="x-btn" onclick="closeSuggestModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--gray);margin-bottom:16px">你推荐的路线经管理员审核后会公开展示</div>
+      <div id="suggest-alert"></div>
+      <div class="form-group">
+        <label>路线名称 *</label>
+        <input type="text" id="s-name" placeholder="如：白云山东线穿越">
+      </div>
+      <div class="form-group">
+        <label>地点 *</label>
+        <input type="text" id="s-location" placeholder="如：广州白云山">
+      </div>
+      <div class="form-group">
+        <label>预估难度 *</label>
+        <select id="s-diff" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit">
+          <option value="简单">简单</option>
+          <option value="中等" selected>中等</option>
+          <option value="困难">困难</option>
+          <option value="专家">专家</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>路线描述</label>
+        <textarea id="s-desc" rows="3" placeholder="路线特色、注意事项、大概距离等…" style="width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;resize:vertical"></textarea>
+      </div>
+      <div class="form-group">
+        <label>你的名字 *</label>
+        <input type="text" id="s-submitter" placeholder="群昵称或真名">
+      </div>
+      <div class="form-group">
+        <label>手机号 *</label>
+        <input type="tel" id="s-phone" placeholder="方便管理员联系你" maxlength="11">
+      </div>
+      <div class="form-group">
+        <label>路线图片（最多3张）</label>
+        <div class="img-preview" id="s-img-preview"></div>
+        <label class="img-upload-lbl" id="s-img-lbl">
+          📷 选择图片
+          <input type="file" id="s-imgs" accept="image/*" multiple style="display:none" onchange="handleImgSelect(this,'s-img-preview','s-img-lbl',3)">
+        </label>
+        <div style="font-size:12px;color:#aaa;margin-top:6px">支持 JPG/PNG，自动压缩上传</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-gray" onclick="closeSuggestModal()">取消</button>
+      <button class="btn btn-green" id="suggest-submit-btn" onclick="submitSuggest()">提交推荐</button>
+    </div>
+  </div>
+</div>
+
+<!-- 免责声明弹窗 -->
+<div class="overlay" id="disclaimer-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>⚠️ 参与须知 &amp; 免责声明</h2>
+      <button class="x-btn" onclick="closeDisclaimer()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="disclaimer-body" style="max-height:55vh;overflow-y:auto;padding-right:4px" onscroll="checkScroll()">
+
+        <div style="background:#fff3cd;border-left:4px solid #f0a500;padding:12px 14px;border-radius:6px;margin-bottom:16px">
+          <b>🚨 请务必认真阅读以下内容，滑动至底部方可报名。</b>
+        </div>
+
+        <h3 style="color:#c0392b;margin-bottom:10px">【注意事项·徒步/玩水结伴声明】</h3>
+        <p style="font-size:14px;line-height:1.9;color:#333;margin-bottom:12px">
+          本次活动为<b>自发结伴、非组织性质</b>，无领队，纯属自愿参加。
+        </p>
+        <div style="font-size:14px;line-height:2;color:#333;margin-bottom:16px">
+          <p>1️⃣ <b>费用：</b>油费、过路费由同车人员包括司机AA分摊</p>
+          <p>2️⃣ <b>健康与安全：</b>请确认自身身体状况，途中如有不适请及时休息或就医；户外活动存在风险，请做好防护与防滑，避免危险行为，建议自行购买保险</p>
+          <p>3️⃣ <b>责任承担：</b>本次活动为非营利自愿结伴，发起人、车主、司机及同行人员均不对意外承担责任。个人安全责任自负、风险自担</p>
+        </div>
+        <div style="background:#fff3cd;border-left:4px solid #f0a500;padding:12px 14px;border-radius:6px;font-size:14px;line-height:1.8;color:#333;margin-bottom:20px">
+          ⚠️ 参与即视为已阅读、理解并同意本声明全部内容。<br>
+          <b>安全第一！安全第一！安全第一！</b><br>
+          祝大家玩儿的开心 🎉
+        </div>
+
+        <h3 style="color:#c0392b;margin-bottom:10px">重要免责与风险提示</h3>
+        <div style="background:#f8d7da;border-left:4px solid #dc3545;padding:12px 14px;border-radius:6px;font-size:13px;color:#333;margin-bottom:12px">
+          <b>凡进群及报名活动即视为已阅读、理解并完全同意本条款！</b>
+        </div>
+        <ul style="font-size:14px;line-height:2;color:#333;padding-left:20px;margin-bottom:16px">
+          <li>本群所有徒步、爬山活动均为群友<b>自发、自愿、非营利、AA制结伴</b>，并非商业活动，无专业领队</li>
+          <li>群主、活动发起人及同行群友仅为信息发布与线路分享，与本次活动无任何法律关联，<b>不承担组织者安全保障责任</b></li>
+          <li>户外活动具有天然风险性，包括但不限于道路意外、摔倒、中暑、迷路、突发疾病、动植物伤害等</li>
+          <li>参与者应根据自身健康状况、体能情况自愿决定是否参加，<b>建议自行购买户外意外险</b></li>
+          <li>活动过程中如发生人身伤害、财产损失等意外，由参与者本人依据保险及相关法律自行承担</li>
+          <li>如群主、活动发起人及同行群友不存在故意或重大过失，<b>均不承担任何法律责任与经济赔偿责任</b></li>
+          <li>凡报名参加活动，即视为已充分知晓风险并同意本条款</li>
+        </ul>
+
+        <div style="text-align:center;color:#aaa;font-size:13px;padding:8px 0 4px">— 已阅读至底部 —</div>
+      </div>
+
+      <!-- 勾选框（等待3秒 + 滑到底才亮） -->
+      <div style="margin-top:16px;padding:14px;background:#f4f7f5;border-radius:10px;border:1.5px solid var(--border)">
+        <div id="countdown-tip" style="text-align:center;font-size:13px;color:var(--gray);margin-bottom:10px">
+          请阅读以上内容，<span id="countdown-num" style="color:var(--red);font-weight:700">3</span> 秒后可勾选
+        </div>
+        <label id="agree-label" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;opacity:0.4;pointer-events:none">
+          <input type="checkbox" id="agree-check" style="width:18px;height:18px;flex-shrink:0;margin-top:2px" onchange="toggleAgreeBtn()">
+          <span style="font-size:14px;line-height:1.6">我已认真阅读并完全理解上述参与须知及免责声明，自愿承担参与活动的一切风险，与组织方无关。</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-gray" onclick="closeDisclaimer()">不参加了</button>
+      <button class="btn btn-green" id="agree-btn" disabled onclick="agreeAndBook()">我已阅读，去报名 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- 报名弹窗 -->
+<div class="overlay" id="modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modal-title">活动详情</h2>
+      <button class="x-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="img-gallery" id="modal-gallery"></div>
+      <div class="detail-grid" id="modal-detail"></div>
+      <div class="form-sep" id="modal-form-wrap">
+        <div class="form-title">填写报名信息</div>
+        <div id="form-alert"></div>
+        <div class="form-group">
+          <label>群名 / 真名 *</label>
+          <input type="text" id="f-name" placeholder="群昵称 或 真实姓名">
+        </div>
+        <div class="form-group">
+          <label>手机号或微信 *</label>
+          <input type="tel" id="f-phone" placeholder="手机号或微信号">
+        </div>
+        <div class="form-group">
+          <label>性别 *</label>
+          <div style="display:flex;gap:10px;margin-top:2px">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:normal;font-size:15px;cursor:pointer">
+              <input type="radio" name="gender" id="g-male" value="男" style="width:auto"> 男
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:normal;font-size:15px;cursor:pointer">
+              <input type="radio" name="gender" id="g-female" value="女" style="width:auto"> 女
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:normal;font-size:15px;cursor:pointer">
+              <input type="radio" name="gender" id="g-other" value="牛马" style="width:auto"> 牛马
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>紧急联系人</label>
+          <input type="text" id="f-emergency" placeholder="姓名＋电话，如：张三 138xxxxxxxx">
+        </div>
+        <div class="form-group">
+          <label>住址大致位置</label>
+          <input type="text" id="f-address" placeholder="如：天河区、番禺区等">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot" id="modal-foot">
+      <button class="btn btn-gray" onclick="closeModal()">取消</button>
+      <button class="btn btn-green" id="submit-btn" onclick="submitBook()">确认报名</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  配置区（填入你的 Supabase 信息）
+// ═══════════════════════════════════════
+const SUPABASE_URL      = 'https://xamzhpmanhkflpodrmyp.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhbXpocG1hbmhrZmxwb2RybXlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MTg4NzIsImV4cCI6MjEwMzk5NDg3Mn0.7NDbpH_DGjvcWMaAl2kQQGXgoOUkDNOWNi2sY4QcPDc'
+// ═══════════════════════════════════════
+
+const sb = SUPABASE_URL !== 'YOUR_SUPABASE_URL'
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null
+let currentAid = null   // 当前打开的活动 id
+let canBook = false      // 当前活动是否可报名
+
+// ── Tab ────────────────────────────────
+function switchTab(btn) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'))
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'))
+  btn.classList.add('active')
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active')
+  if (btn.dataset.tab === 'suggest') loadRoutes()
+}
+
+// ── 推荐路线列表 ──────────────────────
+async function loadRoutes() {
+  const el = document.getElementById('routes-area')
+  if (!sb) {
+    el.innerHTML = '<div class="empty"><div class="eicon">🗺️</div><div>暂无推荐路线</div></div>'
+    return
+  }
+  el.innerHTML = '<div class="loading-msg">加载中…</div>'
+  const { data, error } = await sb.from('route_suggestions')
+    .select('*').eq('status', 'approved').order('created_at', { ascending: false })
+  if (error || !data.length) {
+    el.innerHTML = '<div class="empty"><div class="eicon">🗺️</div><div>暂无推荐路线，快来第一个推荐吧！</div></div>'
+    return
+  }
+  el.innerHTML = data.map(routeCardHTML).join('')
+}
+
+function routeCardHTML(s) {
+  const imgs = s.images && s.images.length
+    ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${s.images.map(url =>
+        `<img src="${url}" onclick="window.open('${url}')" style="width:90px;height:90px;object-fit:cover;border-radius:8px;cursor:zoom-in">`
+      ).join('')}</div>`
+    : ''
+  return `<div style="background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.07);margin-bottom:12px">
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px">📍 ${s.name}</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--gray);margin-bottom:8px">
+      <span>🌍 ${s.location}</span>
+      <span>${badge(s.difficulty)}</span>
+      <span>👤 ${s.submitter} 推荐</span>
+    </div>
+    ${s.description ? `<div style="font-size:14px;color:#555;line-height:1.7;margin-bottom:4px">${s.description}</div>` : ''}
+    ${imgs}
+  </div>`
+}
+
+function openSuggestModal() {
+  imgFiles = []
+  renderImgPreview('s-img-preview', 's-img-lbl', 3)
+  document.getElementById('suggest-alert').innerHTML = ''
+  document.getElementById('s-name').value = ''
+  document.getElementById('s-location').value = ''
+  document.getElementById('s-diff').value = '中等'
+  document.getElementById('s-desc').value = ''
+  document.getElementById('s-submitter').value = ''
+  document.getElementById('s-phone').value = ''
+  document.getElementById('suggest-submit-btn').disabled = false
+  document.getElementById('suggest-submit-btn').textContent = '提交推荐'
+  document.getElementById('suggest-modal').classList.add('show')
+}
+
+function closeSuggestModal() {
+  document.getElementById('suggest-modal').classList.remove('show')
+}
+
+// ── 难度 badge ────────────────────────
+const diffMap = { '简单': 'easy', '中等': 'medium', '困难': 'hard', '专家': 'expert', '5星': 'five' }
+function badge(d) {
+  return `<span class="badge badge-${diffMap[d] || 'medium'}">${d === '5星' ? '⭐⭐⭐⭐⭐' : d}</span>`
+}
+
+// ── 格式化费用 ────────────────────────
+function fmtCost(c) {
+  if (c <= 0) return '免费'
+  if (c >= 10000) return (c / 10000) + ' 万元'
+  return c + ' 元'
+}
+
+// ── 格式化时间 ────────────────────────
+function fmt(ts) {
+  const d = new Date(ts)
+  return d.toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'short' })
+       + ' ' + d.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' })
+}
+
+const DEMO_ACTS = []
+
+// ── 图片压缩 & 上传 ────────────────────
+let imgFiles = []
+
+async function compressImage(file) {
+  return new Promise(resolve => {
+    const img = new Image()
+    const burl = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(burl)
+      const maxPx = 1200
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height))
+      const c = document.createElement('canvas')
+      c.width = Math.round(img.width * scale)
+      c.height = Math.round(img.height * scale)
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
+      c.toBlob(blob => resolve(blob), 'image/jpeg', 0.82)
+    }
+    img.src = burl
+  })
+}
+
+async function uploadImages(files, folder) {
+  if (!sb || !files.length) return []
+  const urls = []
+  for (const file of files) {
+    const blob = await compressImage(file)
+    const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`
+    const { error } = await sb.storage.from('route-images').upload(path, blob, { contentType: 'image/jpeg' })
+    if (!error) {
+      const { data } = sb.storage.from('route-images').getPublicUrl(path)
+      urls.push(data.publicUrl)
+    }
+  }
+  return urls
+}
+
+function handleImgSelect(input, previewId, lblId, max) {
+  imgFiles = [...imgFiles, ...Array.from(input.files)].slice(0, max)
+  input.value = ''
+  renderImgPreview(previewId, lblId, max)
+}
+
+function removeImgFile(i, previewId, lblId, max) {
+  imgFiles.splice(i, 1)
+  renderImgPreview(previewId, lblId, max)
+}
+
+function renderImgPreview(previewId, lblId, max) {
+  const el = document.getElementById(previewId)
+  if (!el) return
+  el.innerHTML = imgFiles.map((f, i) => {
+    const url = URL.createObjectURL(f)
+    return `<div class="img-thumb-wrap">
+      <img src="${url}">
+      <button type="button" class="img-thumb-rm" onclick="removeImgFile(${i},'${previewId}','${lblId}',${max})">✕</button>
+    </div>`
+  }).join('')
+  const lbl = document.getElementById(lblId)
+  if (lbl) lbl.style.display = imgFiles.length >= max ? 'none' : 'inline-flex'
+}
+
+// ── 加载活动列表 ──────────────────────
+async function loadActivities() {
+  // Supabase 未配置时直接显示演示数据
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    renderCards('upcoming-area', DEMO_ACTS, true)
+    return
+  }
+
+  let actsRaw, res
+  try {
+    const [r1, r2] = await Promise.all([
+      sb.from('activities').select('*').order('activity_time', { ascending: true }),
+      sb.from('reservations').select('activity_id')
+    ])
+    if (r1.error) throw r1.error
+    actsRaw = r1.data
+    res = r2.data
+  } catch (e) {
+    renderCards('upcoming-area', DEMO_ACTS, true)
+    return
+  }
+
+  // 统计各活动报名数
+  const counts = {}
+  ;(res || []).forEach(r => { counts[r.activity_id] = (counts[r.activity_id] || 0) + 1 })
+
+  // 合并演示活动 + 数据库活动
+  const acts = [...DEMO_ACTS, ...(actsRaw || [])]
+  acts.forEach(a => { if (!a._demo) a._count = counts[a.id] || 0 })
+
+  const now = new Date()
+  const upcoming = acts.filter(a => new Date(a.activity_time) >= now)
+  const past     = acts.filter(a => new Date(a.activity_time) < now).reverse().slice(0, 5)
+
+  renderCards('upcoming-area', upcoming, true)
+  renderCards('past-area', past, false)
+}
+
+function renderCards(elId, acts, isUpcoming) {
+  const el = document.getElementById(elId)
+  if (!acts.length) {
+    el.innerHTML = `<div class="empty"><div class="eicon">🏕️</div><div>${isUpcoming ? '暂无即将开始的活动' : '暂无往期活动'}</div></div>`
+    return
+  }
+  if (!isUpcoming) {
+    el.innerHTML = `<div class="past-list">${acts.map(pastItemHTML).join('')}</div>`
+  } else {
+    el.innerHTML = `<div class="cards">${acts.map(a => cardHTML(a, true)).join('')}</div>`
+  }
+}
+
+function pastItemHTML(a) {
+  return `
+    <div class="past-item">
+      <div class="past-name">📁 ${a.name}</div>
+      <div class="past-meta">
+        <span>📅 ${fmt(a.activity_time)}</span>
+        <span>📍 ${a.location}</span>
+        <span>${badge(a.difficulty)}</span>
+        <span>💰 ${fmtCost(a.cost)}</span>
+        <span>👥 ${a._count} 人参与</span>
+      </div>
+      <span class="past-tag">已结束</span>
+    </div>`
+}
+
+function cardHTML(a, isUpcoming) {
+  const pct  = Math.min((a._count / a.max_participants) * 100, 100)
+  const full = a._count >= a.max_participants
+  const past = !isUpcoming
+  const btnLabel = past ? '活动已结束' : full ? '名额已满' : !a.is_accepting ? '报名已关闭' : '立即报名'
+  const btnDisabled = past || full || !a.is_accepting ? 'disabled' : ''
+  const clickFn = btnDisabled ? '' : `openDisclaimer('${a.id}')`
+  const firstImg = a.images && a.images.length ? a.images[0] : null
+  return `
+    <div class="card" onclick="${clickFn || `openModal('${a.id}')`}">
+      ${firstImg ? `<img class="card-img" src="${firstImg}" alt="${a.name}">` : ''}
+      <div class="card-head">
+        <div class="card-title">${a.name}</div>
+        <div class="card-time">📅 ${fmt(a.activity_time)}</div>
+      </div>
+      <div class="card-body">
+        <div class="info">📍 <em>${a.location}</em></div>
+        <div class="info">🚩 集合：<em>${a.meeting_point}</em></div>
+        <div class="info">🏃 ${badge(a.difficulty)} &nbsp;💰 ${fmtCost(a.cost)}</div>
+        <div class="info">👥 已报 ${a._count} / ${a.max_participants} 人
+          ${full ? '<span style="color:var(--red);font-weight:600;margin-left:4px">已满</span>' : ''}</div>
+        <div class="progress-wrap"><div class="progress-bar ${full ? 'full' : ''}" style="width:${pct}%"></div></div>
+      </div>
+      <div class="card-foot">
+        <button class="btn btn-block ${btnDisabled ? 'btn-gray' : 'btn-green'}" ${btnDisabled}
+          onclick="${btnDisabled ? '' : `event.stopPropagation();openDisclaimer('${a.id}')`}">${btnLabel}</button>
+      </div>
+    </div>`
+}
+
+// ── 免责声明弹窗 ──────────────────────
+let pendingAid = null
+let hasAgreed  = false   // 本次打开页面是否已同意
+
+function openDisclaimer(aid) {
+  if (hasAgreed) { openModal(aid); return }
+  pendingAid = aid
+  document.getElementById('agree-check').checked = false
+  document.getElementById('agree-btn').disabled = true
+  document.getElementById('agree-label').style.opacity = '0.4'
+  document.getElementById('agree-label').style.pointerEvents = 'none'
+  document.getElementById('countdown-tip').style.display = 'block'
+  document.getElementById('countdown-num').textContent = '3'
+  document.getElementById('disclaimer-modal').classList.add('show')
+  requestAnimationFrame(() => {
+    document.getElementById('disclaimer-body').scrollTop = 0
+  })
+  // 倒计时 3 秒
+  let sec = 3
+  const timer = setInterval(() => {
+    sec--
+    if (sec > 0) {
+      document.getElementById('countdown-num').textContent = sec
+    } else {
+      clearInterval(timer)
+      document.getElementById('countdown-tip').style.display = 'none'
+      document.getElementById('agree-label').style.opacity = '1'
+      document.getElementById('agree-label').style.pointerEvents = 'auto'
+    }
+  }, 1000)
+}
+function closeDisclaimer() {
+  document.getElementById('disclaimer-modal').classList.remove('show')
+}
+function checkScroll() { /* 由倒计时控制，无需滚动检测 */ }
+function toggleAgreeBtn() {
+  document.getElementById('agree-btn').disabled = !document.getElementById('agree-check').checked
+}
+function agreeAndBook() {
+  hasAgreed = true
+  closeDisclaimer()
+  openModal(pendingAid)
+}
+
+// ── 打开活动弹窗 ──────────────────────
+async function openModal(aid) {
+  currentAid = aid
+
+  // 演示活动或 Supabase 未配置时，直接用本地数据
+  let a, count
+  if (!sb || aid.startsWith('demo-')) {
+    a = DEMO_ACTS.find(x => x.id === aid)
+    count = a._count || 0
+  } else {
+    const [r1, r2] = await Promise.all([
+      sb.from('activities').select('*').eq('id', aid).single(),
+      sb.from('reservations').select('id').eq('activity_id', aid)
+    ])
+    a = r1.data
+    count = r2.data ? r2.data.length : 0
+  }
+
+  const now  = new Date()
+  const past = new Date(a.activity_time) < now
+  const full = count >= a.max_participants
+  canBook = !past && !full && a.is_accepting
+
+  document.getElementById('modal-title').textContent = a.name
+  const imgs = a.images || []
+  document.getElementById('modal-gallery').innerHTML = imgs.length
+    ? imgs.map(url => `<img src="${url}" onclick="window.open('${url}')" title="点击查看原图">`).join('')
+    : ''
+  document.getElementById('modal-detail').innerHTML = `
+    <div class="detail-row">📅 <b>时间：</b>${fmt(a.activity_time)}</div>
+    <div class="detail-row">📍 <b>地点：</b>${a.location}</div>
+    <div class="detail-row">🚩 <b>集合：</b>${a.meeting_point}</div>
+    <div class="detail-row">🏃 <b>难度：</b>${badge(a.difficulty)}</div>
+    <div class="detail-row">💰 <b>费用：</b>${fmtCost(a.cost)}</div>
+    <div class="detail-row">👥 <b>人数：</b>已报 ${count} / ${a.max_participants} 人</div>
+    ${a.notes ? `<div class="detail-row">📝 <b>注意：</b>${a.notes}</div>` : ''}
+  `
+
+  const formWrap = document.getElementById('modal-form-wrap')
+  const foot     = document.getElementById('modal-foot')
+  document.getElementById('form-alert').innerHTML = ''
+  document.getElementById('f-name').value = ''
+  document.getElementById('f-phone').value = ''
+  document.getElementById('f-emergency').value = ''
+  document.querySelectorAll('input[name="gender"]').forEach(r => r.checked = false)
+
+  if (canBook) {
+    formWrap.style.display = 'block'
+    foot.innerHTML = `<button class="btn btn-gray" onclick="closeModal()">取消</button>
+                      <button class="btn btn-green" id="submit-btn" onclick="submitBook()">确认报名</button>`
+  } else {
+    formWrap.style.display = 'none'
+    foot.innerHTML = `<button class="btn btn-gray" onclick="closeModal()">关闭</button>`
+  }
+
+  document.getElementById('modal').classList.add('show')
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show')
+}
+
+// ── 提交报名 ──────────────────────────
+async function submitBook() {
+  const name      = document.getElementById('f-name').value.trim()
+  const phone     = document.getElementById('f-phone').value.trim()
+  const emergency = document.getElementById('f-emergency').value.trim()
+  const address   = document.getElementById('f-address').value.trim()
+  const gender    = document.querySelector('input[name="gender"]:checked')?.value || ''
+  const alertEl   = document.getElementById('form-alert')
+
+  if (!name || !phone || !gender) {
+    alertEl.innerHTML = '<div class="alert alert-err">请填写群名/真名、手机号或微信、性别</div>'; return
+  }
+
+  // 演示活动或 Supabase 未配置
+  if (!sb || currentAid.startsWith('demo-')) {
+    alertEl.innerHTML = '<div class="alert alert-ok">🎉 报名成功！（演示模式）请记住手机号，可在"我的预约"中查看记录。</div>'
+    document.getElementById('modal-foot').innerHTML = `<button class="btn btn-green" onclick="closeModal()">完成</button>`
+    return
+  }
+
+  // 检查是否重复报名
+  const { data: dup } = await sb.from('reservations')
+    .select('id').eq('activity_id', currentAid).eq('phone', phone).maybeSingle()
+  if (dup) {
+    alertEl.innerHTML = '<div class="alert alert-err">该手机号已报名此活动，请勿重复提交</div>'; return
+  }
+
+  const btn = document.getElementById('submit-btn')
+  btn.disabled = true; btn.textContent = '提交中…'
+
+  const { error } = await sb.from('reservations').insert({
+    activity_id: currentAid, name, phone, gender, emergency_contact: emergency, address
+  })
+
+  if (error) {
+    alertEl.innerHTML = `<div class="alert alert-err">报名失败，请重试</div>`
+    btn.disabled = false; btn.textContent = '确认报名'; return
+  }
+
+  alertEl.innerHTML = '<div class="alert alert-ok">🎉 报名成功！请记住手机号，可在"我的预约"中查看记录。</div>'
+  document.getElementById('f-name').value = ''
+  document.getElementById('f-phone').value = ''
+  document.getElementById('f-emergency').value = ''
+  document.getElementById('f-address').value = ''
+  document.querySelectorAll('input[name="gender"]').forEach(r => r.checked = false)
+  document.getElementById('modal-foot').innerHTML = `<button class="btn btn-green" onclick="closeModal();loadActivities()">完成</button>`
+}
+
+// ── 我的预约 ──────────────────────────
+async function queryMine() {
+  const phone = document.getElementById('phoneInput').value.trim()
+  const el    = document.getElementById('mine-result')
+
+  if (!/^1[3-9]\d{9}$/.test(phone)) {
+    el.innerHTML = '<div class="alert alert-err">请输入正确的11位手机号</div>'; return
+  }
+  if (!sb) {
+    el.innerHTML = '<div class="empty"><div class="eicon">📋</div><div>演示模式暂不支持查询，配置 Supabase 后可用</div></div>'; return
+  }
+  el.innerHTML = '<div class="loading-msg">查询中…</div>'
+
+  const { data, error } = await sb.from('reservations')
+    .select('*, activities(name, activity_time, location, difficulty, cost)')
+    .eq('phone', phone)
+    .order('created_at', { ascending: false })
+
+  if (error) { el.innerHTML = `<div class="alert alert-err">查询失败：${error.message}</div>`; return }
+  if (!data.length) {
+    el.innerHTML = '<div class="empty"><div class="eicon">📋</div><div>未找到该手机号的预约记录</div></div>'; return
+  }
+
+  const now = new Date()
+  el.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>活动名称</th><th>时间</th><th>地点</th><th>状态</th></tr></thead>
+        <tbody>
+          ${data.map(r => {
+            const isPast = new Date(r.activities.activity_time) < now
+            return `<tr>
+              <td><b>${r.activities.name}</b></td>
+              <td style="white-space:nowrap">${fmt(r.activities.activity_time)}</td>
+              <td>${r.activities.location}</td>
+              <td>${isPast
+                ? '<span style="color:var(--gray)">已结束</span>'
+                : '<span style="color:var(--green);font-weight:600">待参加</span>'}</td>
+            </tr>`
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`
+}
+
+// ── 提交路线推荐 ──────────────────────
+async function submitSuggest() {
+  const name      = document.getElementById('s-name').value.trim()
+  const location  = document.getElementById('s-location').value.trim()
+  const diff      = document.getElementById('s-diff').value
+  const desc      = document.getElementById('s-desc').value.trim()
+  const submitter = document.getElementById('s-submitter').value.trim()
+  const phone     = document.getElementById('s-phone').value.trim()
+  const alertEl   = document.getElementById('suggest-alert')
+
+  if (!name || !location || !submitter || !phone) {
+    alertEl.innerHTML = '<div class="alert alert-err">请填写所有带 * 的必填项</div>'; return
+  }
+  if (!/^1[3-9]\d{9}$/.test(phone)) {
+    alertEl.innerHTML = '<div class="alert alert-err">请输入正确的11位手机号</div>'; return
+  }
+  if (!sb) {
+    alertEl.innerHTML = '<div class="alert alert-err">演示模式暂不支持提交，请稍后再试</div>'; return
+  }
+
+  const btn = document.getElementById('suggest-submit-btn')
+  btn.disabled = true; btn.textContent = '上传中…'
+
+  const images = await uploadImages(imgFiles, 'suggestions')
+
+  btn.textContent = '提交中…'
+  const { error } = await sb.from('route_suggestions').insert({
+    name, location, difficulty: diff, description: desc, submitter, phone, status: 'pending', images
+  })
+
+  btn.disabled = false; btn.textContent = '提交推荐'
+
+  if (error) {
+    alertEl.innerHTML = `<div class="alert alert-err">提交失败，请重试</div>`; return
+  }
+
+  // 提交成功：关弹窗，刷新列表
+  setTimeout(() => closeSuggestModal(), 1200)
+  alertEl.innerHTML = '<div class="alert alert-ok">🎉 提交成功！管理员审核通过后会公开展示。</div>'
+  document.getElementById('s-name').value = ''
+  document.getElementById('s-location').value = ''
+  document.getElementById('s-diff').value = '中等'
+  document.getElementById('s-desc').value = ''
+  document.getElementById('s-submitter').value = ''
+  document.getElementById('s-phone').value = ''
+  imgFiles = []
+  renderImgPreview('s-img-preview', 's-img-lbl', 3)
+}
+
+// ── 初始化 ────────────────────────────
+loadActivities()
+</script>
+</body>
+</html>

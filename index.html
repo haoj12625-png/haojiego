@@ -207,12 +207,77 @@
       .cards { grid-template-columns: 1fr; }
       nav button { padding: 12px 14px; font-size: 14px; }
     }
+
+    /* ══ 管理面板 ══ */
+    .admin-overlay {
+      display: none; position: fixed; inset: 0; z-index: 500;
+      background: var(--bg); overflow-y: auto;
+    }
+    .admin-overlay.show { display: block; }
+    #adm-login {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #1b4332, #2d6a4f);
+    }
+    .login-box {
+      background: #fff; border-radius: 18px; padding: 44px 36px; width: 320px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.28); text-align: center;
+    }
+    .login-box .licon { font-size: 52px; margin-bottom: 14px; }
+    .login-box h2 { font-size: 22px; margin-bottom: 6px; }
+    .login-box p { color: var(--gray); font-size: 14px; margin-bottom: 24px; }
+    .login-box input {
+      width: 100%; padding: 12px 16px; border: 1.5px solid var(--border); border-radius: 9px;
+      font-size: 15px; text-align: center; letter-spacing: 3px; margin-bottom: 14px; font-family: inherit;
+    }
+    .login-box input:focus { outline: none; border-color: var(--green); }
+    .login-err { color: var(--red); font-size: 13px; margin: -8px 0 10px; display: none; }
+    .adm-header {
+      background: var(--green); color: #fff; padding: 14px 22px;
+      display: flex; align-items: center; justify-content: center; position: relative;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18); position: sticky; top: 0; z-index: 50;
+    }
+    .adm-nav {
+      display: flex; background: #fff; border-bottom: 1px solid var(--border);
+      padding: 0 22px; position: sticky; top: 53px; z-index: 40;
+    }
+    .adm-nav button {
+      padding: 13px 20px; border: none; background: none; font-size: 15px;
+      color: var(--gray); cursor: pointer; border-bottom: 3px solid transparent;
+      font-family: inherit; transition: color 0.2s;
+    }
+    .adm-nav button.active { color: var(--green); border-bottom-color: var(--green); font-weight: 600; }
+    .adm-main { padding: 20px; max-width: 1040px; margin: 0 auto; }
+    .stats { display: flex; gap: 14px; margin-bottom: 22px; flex-wrap: wrap; }
+    .stat { background: #fff; border-radius: 12px; padding: 18px 22px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); min-width: 130px; }
+    .stat .n { font-size: 32px; font-weight: 700; color: var(--green); }
+    .stat .l { font-size: 13px; color: var(--gray); margin-top: 2px; }
+    .pg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .pg-title { font-size: 17px; font-weight: 700; }
+    .btn-sm    { padding: 6px 12px !important; font-size: 13px !important; }
+    .btn-ghost { background: none; color: var(--green); border: 1.5px solid var(--green); }
+    .btn-ghost:hover { background: var(--green); color: #fff; }
+    .badge-open   { background: #d4edda; color: #155724; }
+    .badge-closed { background: #f8d7da; color: #721c24; }
+    .badge-past   { background: #e9ecef; color: #6c757d; }
+    .act-row { display: flex; gap: 7px; flex-wrap: wrap; }
+    .filter-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+    .filter-row select { padding: 9px 14px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; min-width: 200px; flex: 1; }
+    .filter-row select:focus { outline: none; border-color: var(--green); }
+    .fg { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .fg-full { grid-column: 1 / -1; }
+    .f-group label { display: block; font-size: 13px; font-weight: 600; color: var(--gray); margin-bottom: 6px; }
+    .f-group input, .f-group select, .f-group textarea { width: 100%; padding: 10px 13px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; }
+    .f-group input:focus, .f-group select:focus, .f-group textarea:focus { outline: none; border-color: var(--green); }
+    .f-group textarea { resize: vertical; }
+    .f-check { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .f-check input { width: auto; }
+    @media (max-width: 600px) { .fg { grid-template-columns: 1fr; } .stats { flex-direction: column; } }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>🏔️ 豪姐姐叫你去巡山</h1>
+  <h1><span id="secret-btn" onclick="secretClick()" style="cursor:default;user-select:none">🏔️</span> 豪姐姐叫你去巡山</h1>
   <div class="sub">报名参与精彩户外活动</div>
 </header>
 
@@ -424,6 +489,117 @@
     <div class="modal-foot" id="modal-foot">
       <button class="btn btn-gray" onclick="closeModal()">取消</button>
       <button class="btn btn-green" id="submit-btn" onclick="submitBook()">确认报名</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 管理员面板 ══ -->
+<div class="admin-overlay" id="admin-overlay">
+  <!-- 登录 -->
+  <div id="adm-login">
+    <div class="login-box">
+      <div class="licon">🔐</div>
+      <h2>管理员登录</h2>
+      <p>请输入管理密码</p>
+      <input type="password" id="pwd-input" placeholder="密码" onkeydown="if(event.key==='Enter') doLogin()">
+      <div class="login-err" id="login-err">密码错误，请重试</div>
+      <button class="btn btn-green" style="width:100%;justify-content:center" onclick="doLogin()">登 录</button>
+    </div>
+  </div>
+  <!-- 后台 -->
+  <div id="adm-dashboard" style="display:none">
+    <div class="adm-header">
+      <h1 style="font-size:18px;font-weight:700;color:#fff">🏔️ 豪姐姐徒步后台</h1>
+      <button class="btn btn-gray btn-sm" onclick="doLogout()" style="position:absolute;right:22px;top:50%;transform:translateY(-50%)">退出</button>
+    </div>
+    <div class="adm-nav">
+      <button class="active" data-tab="acts" onclick="aSwitchTab(this)">活动管理</button>
+      <button data-tab="res"  onclick="aSwitchTab(this)">预约管理</button>
+      <button data-tab="sugg" onclick="aSwitchTab(this)">路线建议</button>
+    </div>
+    <div class="adm-main">
+      <div id="adm-tab-acts" class="tab-content active">
+        <div class="stats" id="stats-area"></div>
+        <div class="pg-head">
+          <div class="pg-title">全部活动</div>
+          <button class="btn btn-green" onclick="openActModal()">＋ 发布新活动</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>活动名称</th><th>时间</th><th>地点</th><th>报名</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody id="acts-body"><tr><td colspan="6" class="loading-msg">加载中…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="adm-tab-res" class="tab-content">
+        <div class="pg-head">
+          <div class="pg-title">预约记录</div>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ 导出 CSV</button>
+        </div>
+        <div class="filter-row">
+          <select id="act-filter" onchange="loadRes()"><option value="">全部活动</option></select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>活动名称</th><th>姓名</th><th>性别</th><th>手机号或微信</th><th>紧急联系人</th><th>住址大致位置</th><th>报名时间</th><th>操作</th></tr></thead>
+            <tbody id="res-body"><tr><td colspan="8" class="loading-msg">加载中…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="adm-tab-sugg" class="tab-content">
+        <div class="pg-head">
+          <div class="pg-title">用户路线建议</div>
+          <select id="sugg-filter" onchange="loadSugg()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit">
+            <option value="pending">待审核</option>
+            <option value="approved">已推荐</option>
+            <option value="rejected">已拒绝</option>
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>路线名称</th><th>地点</th><th>难度</th><th>描述</th><th>推荐人</th><th>手机号</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody id="sugg-body"><tr><td colspan="8" class="loading-msg">加载中…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- 活动编辑弹窗 -->
+  <div class="overlay" id="act-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="act-modal-title">发布新活动</h2>
+        <button class="x-btn" onclick="closeActModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="act-alert"></div>
+        <div class="fg">
+          <div class="f-group fg-full"><label>活动名称 *</label><input type="text" id="a-name" placeholder="如：周末南山徒步"></div>
+          <div class="f-group"><label>活动时间 *</label><input type="datetime-local" id="a-time"></div>
+          <div class="f-group"><label>人数上限 *</label><input type="number" id="a-max" placeholder="20" min="1"></div>
+          <div class="f-group"><label>地点 *</label><input type="text" id="a-location" placeholder="如：广州南山"></div>
+          <div class="f-group"><label>集合地点 *</label><input type="text" id="a-meeting" placeholder="如：地铁南山站A出口"></div>
+          <div class="f-group"><label>路线难度 *</label>
+            <select id="a-diff"><option value="简单">简单</option><option value="中等" selected>中等</option><option value="困难">困难</option><option value="专家">专家</option></select>
+          </div>
+          <div class="f-group"><label>费用（元，0为免费）</label><input type="number" id="a-cost" placeholder="0" min="0" value="0"></div>
+          <div class="f-group fg-full"><label>注意事项</label><textarea id="a-notes" rows="3" placeholder="装备要求、天气提示等…"></textarea></div>
+          <div class="f-group fg-full">
+            <label>活动图片（最多3张）</label>
+            <div class="img-preview" id="a-img-preview"></div>
+            <label class="img-upload-lbl" id="a-img-lbl">📷 选择图片
+              <input type="file" id="a-imgs" accept="image/*" multiple style="display:none" onchange="aHandleImgSelect(this,'a-img-preview','a-img-lbl',3)">
+            </label>
+            <div style="font-size:12px;color:#aaa;margin-top:6px">支持 JPG/PNG，自动压缩上传</div>
+          </div>
+          <div class="f-group fg-full"><label class="f-check"><input type="checkbox" id="a-open" checked> 开放报名</label></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-gray" onclick="closeActModal()">取消</button>
+        <button class="btn btn-green" id="save-act-btn" onclick="saveAct()">保存</button>
+      </div>
     </div>
   </div>
 </div>
@@ -930,6 +1106,254 @@ async function submitSuggest() {
   document.getElementById('s-phone').value = ''
   imgFiles = []
   renderImgPreview('s-img-preview', 's-img-lbl', 3)
+}
+
+// ── 隐藏入口（三击⛰️打开管理面板）────
+let _sc = 0, _st = null
+function secretClick() {
+  _sc++
+  clearTimeout(_st)
+  if (_sc >= 3) {
+    _sc = 0
+    document.getElementById('admin-overlay').classList.add('show')
+    if (sessionStorage.getItem('hk_admin') === '1') {
+      document.getElementById('adm-login').style.display = 'none'
+      document.getElementById('adm-dashboard').style.display = 'block'
+      loadAll()
+    }
+    return
+  }
+  _st = setTimeout(() => { _sc = 0 }, 1500)
+}
+
+// ══ 管理员功能 ══════════════════════════
+const ADMIN_PWD = 'kevin2003'
+let allActs = [], allRes = [], editId = null
+let aImgFiles = [], aExistingImgs = []
+
+function doLogin() {
+  const v = document.getElementById('pwd-input').value
+  if (v === ADMIN_PWD) {
+    sessionStorage.setItem('hk_admin', '1')
+    document.getElementById('adm-login').style.display = 'none'
+    document.getElementById('adm-dashboard').style.display = 'block'
+    loadAll()
+  } else {
+    document.getElementById('login-err').style.display = 'block'
+  }
+}
+function doLogout() {
+  sessionStorage.removeItem('hk_admin')
+  document.getElementById('adm-dashboard').style.display = 'none'
+  document.getElementById('adm-login').style.display = 'flex'
+  document.getElementById('pwd-input').value = ''
+  document.getElementById('login-err').style.display = 'none'
+  document.getElementById('admin-overlay').classList.remove('show')
+}
+
+function aSwitchTab(btn) {
+  btn.closest('.adm-nav').querySelectorAll('button').forEach(b => b.classList.remove('active'))
+  document.querySelectorAll('.adm-main .tab-content').forEach(t => t.classList.remove('active'))
+  btn.classList.add('active')
+  document.getElementById('adm-tab-' + btn.dataset.tab).classList.add('active')
+}
+
+// 管理员图片相关
+function aHandleImgSelect(input, previewId, lblId, max) {
+  const remaining = max - aExistingImgs.length - aImgFiles.length
+  aImgFiles = [...aImgFiles, ...Array.from(input.files)].slice(0, aImgFiles.length + Math.max(0, remaining))
+  input.value = ''
+  aRenderImgPreview(previewId, lblId, max)
+}
+function aRemoveExistingImg(i, previewId, lblId, max) { aExistingImgs.splice(i, 1); aRenderImgPreview(previewId, lblId, max) }
+function aRemoveNewImg(i, previewId, lblId, max) { aImgFiles.splice(i, 1); aRenderImgPreview(previewId, lblId, max) }
+function aRenderImgPreview(previewId, lblId, max) {
+  const el = document.getElementById(previewId); if (!el) return
+  const existHtml = aExistingImgs.map((url, i) => `<div class="img-thumb-wrap"><img src="${url}"><button type="button" class="img-thumb-rm" onclick="aRemoveExistingImg(${i},'${previewId}','${lblId}',${max})">✕</button></div>`).join('')
+  const newHtml = aImgFiles.map((f, i) => { const url = URL.createObjectURL(f); return `<div class="img-thumb-wrap"><img src="${url}"><button type="button" class="img-thumb-rm" onclick="aRemoveNewImg(${i},'${previewId}','${lblId}',${max})">✕</button></div>` }).join('')
+  el.innerHTML = existHtml + newHtml
+  const lbl = document.getElementById(lblId)
+  if (lbl) lbl.style.display = (aExistingImgs.length + aImgFiles.length >= max) ? 'none' : 'inline-flex'
+}
+
+async function loadAll() { await Promise.all([loadActs(), loadRes(), loadSugg()]) }
+
+async function loadActs() {
+  if (!sb) { document.getElementById('acts-body').innerHTML = '<tr><td colspan="6" class="empty">请先配置 Supabase</td></tr>'; return }
+  const [{ data: acts, error }, { data: res }] = await Promise.all([
+    sb.from('activities').select('*').order('activity_time', { ascending: false }),
+    sb.from('reservations').select('activity_id')
+  ])
+  if (error) { document.getElementById('acts-body').innerHTML = '<tr><td colspan="6" class="empty">加载失败</td></tr>'; return }
+  allActs = acts || []
+  const counts = {}
+  ;(res || []).forEach(r => { counts[r.activity_id] = (counts[r.activity_id] || 0) + 1 })
+  allActs.forEach(a => { a._count = counts[a.id] || 0 })
+  const now = new Date()
+  const upcoming = allActs.filter(a => new Date(a.activity_time) >= now).length
+  document.getElementById('stats-area').innerHTML = `
+    <div class="stat"><div class="n">${allActs.length}</div><div class="l">总活动数</div></div>
+    <div class="stat"><div class="n">${upcoming}</div><div class="l">即将开始</div></div>
+    <div class="stat"><div class="n">${(res||[]).length}</div><div class="l">总报名数</div></div>`
+  if (!allActs.length) { document.getElementById('acts-body').innerHTML = '<tr><td colspan="6" class="empty">暂无活动</td></tr>'; return }
+  document.getElementById('acts-body').innerHTML = allActs.map(a => {
+    const past = new Date(a.activity_time) < now
+    const statusBadge = past ? '<span class="badge badge-past">已结束</span>' : a.is_accepting ? '<span class="badge badge-open">报名中</span>' : '<span class="badge badge-closed">已关闭</span>'
+    return `<tr><td><b>${a.name}</b></td><td style="white-space:nowrap">${fmt(a.activity_time)}</td><td>${a.location}</td><td>${a._count} / ${a.max_participants}</td><td>${statusBadge}</td>
+      <td><div class="act-row"><button class="btn btn-gray btn-sm" onclick="openActModal('${a.id}')">编辑</button><button class="btn btn-red btn-sm" onclick="delAct('${a.id}','${a.name.replace(/'/g,"\\'")}')">删除</button></div></td></tr>`
+  }).join('')
+  const sel = document.getElementById('act-filter')
+  sel.innerHTML = '<option value="">全部活动</option>' + allActs.map(a => `<option value="${a.id}">${a.name}</option>`).join('')
+}
+
+async function loadRes() {
+  if (!sb) { document.getElementById('res-body').innerHTML = '<tr><td colspan="8" class="empty">请先配置 Supabase</td></tr>'; return }
+  const actId = document.getElementById('act-filter')?.value || ''
+  let q = sb.from('reservations').select('*, activities(name, activity_time)').order('created_at', { ascending: false })
+  if (actId) q = q.eq('activity_id', actId)
+  const { data, error } = await q
+  if (error) { document.getElementById('res-body').innerHTML = '<tr><td colspan="8" class="empty">加载失败</td></tr>'; return }
+  allRes = data || []
+  if (!allRes.length) { document.getElementById('res-body').innerHTML = '<tr><td colspan="8" class="empty">暂无预约记录</td></tr>'; return }
+  document.getElementById('res-body').innerHTML = allRes.map(r => `<tr>
+    <td>${r.activities?.name || '-'}</td><td>${r.name}</td><td>${r.gender || '-'}</td><td>${r.phone}</td>
+    <td>${r.emergency_contact || '-'}</td><td>${r.address || '-'}</td>
+    <td style="white-space:nowrap">${fmtShort(r.created_at)}</td>
+    <td><button class="btn btn-red btn-sm" onclick="delRes('${r.id}','${r.name.replace(/'/g,"\\'")}')">取消</button></td>
+  </tr>`).join('')
+}
+
+function openActModal(id) {
+  editId = id || null
+  document.getElementById('act-modal-title').textContent = id ? '编辑活动' : '发布新活动'
+  document.getElementById('act-alert').innerHTML = ''
+  aImgFiles = []; aExistingImgs = []
+  if (id) {
+    const a = allActs.find(x => x.id === id)
+    if (a) {
+      document.getElementById('a-name').value     = a.name
+      document.getElementById('a-time').value     = new Date(new Date(a.activity_time) - new Date().getTimezoneOffset()*60000).toISOString().slice(0, 16)
+      document.getElementById('a-location').value = a.location
+      document.getElementById('a-meeting').value  = a.meeting_point
+      document.getElementById('a-diff').value     = a.difficulty
+      document.getElementById('a-cost').value     = a.cost
+      document.getElementById('a-max').value      = a.max_participants
+      document.getElementById('a-notes').value    = a.notes || ''
+      document.getElementById('a-open').checked   = a.is_accepting
+      aExistingImgs = a.images ? [...a.images] : []
+    }
+  } else {
+    document.getElementById('a-name').value = ''; document.getElementById('a-time').value = ''
+    document.getElementById('a-location').value = ''; document.getElementById('a-meeting').value = ''
+    document.getElementById('a-diff').value = '中等'; document.getElementById('a-cost').value = '0'
+    document.getElementById('a-max').value = ''; document.getElementById('a-notes').value = ''
+    document.getElementById('a-open').checked = true
+  }
+  aRenderImgPreview('a-img-preview', 'a-img-lbl', 3)
+  document.getElementById('act-modal').classList.add('show')
+}
+function closeActModal() { document.getElementById('act-modal').classList.remove('show'); delete document.getElementById('act-modal').dataset.suggId }
+
+async function saveAct() {
+  const name = document.getElementById('a-name').value.trim()
+  const time = new Date(document.getElementById('a-time').value).toISOString()
+  const loc  = document.getElementById('a-location').value.trim()
+  const meet = document.getElementById('a-meeting').value.trim()
+  const diff = document.getElementById('a-diff').value
+  const cost = parseFloat(document.getElementById('a-cost').value) || 0
+  const maxP = parseInt(document.getElementById('a-max').value)
+  const notes = document.getElementById('a-notes').value.trim()
+  const isOpen = document.getElementById('a-open').checked
+  const alertEl = document.getElementById('act-alert')
+  if (!name || !time || !loc || !meet || !maxP) { alertEl.innerHTML = '<div class="alert alert-err">请填写所有带 * 的必填项</div>'; return }
+  const btn = document.getElementById('save-act-btn')
+  btn.disabled = true; btn.textContent = '上传图片中…'
+  const newUrls = await uploadImages(aImgFiles, 'activities')
+  const images  = [...aExistingImgs, ...newUrls]
+  btn.textContent = '保存中…'
+  const payload = { name, activity_time: time, location: loc, meeting_point: meet, difficulty: diff, cost, max_participants: maxP, notes, is_accepting: isOpen, images }
+  const { error } = editId ? await sb.from('activities').update(payload).eq('id', editId) : await sb.from('activities').insert(payload)
+  btn.disabled = false; btn.textContent = '保存'
+  if (error) { alertEl.innerHTML = `<div class="alert alert-err">保存失败：${error.message}</div>`; return }
+  const suggId = document.getElementById('act-modal').dataset.suggId
+  if (suggId) { await sb.from('route_suggestions').update({ status: 'approved' }).eq('id', suggId); delete document.getElementById('act-modal').dataset.suggId }
+  closeActModal(); loadAll()
+}
+
+async function delAct(id, name) {
+  if (!confirm(`确认删除活动「${name}」？同时会删除所有报名记录！`)) return
+  const { error } = await sb.from('activities').delete().eq('id', id)
+  if (error) { alert('删除失败：' + error.message); return }
+  loadAll()
+}
+async function delRes(id, name) {
+  if (!confirm(`确认取消「${name}」的报名？`)) return
+  const { error } = await sb.from('reservations').delete().eq('id', id)
+  if (error) { alert('操作失败：' + error.message); return }
+  loadRes()
+}
+
+function exportCSV() {
+  if (!allRes.length) { alert('当前没有可导出的记录'); return }
+  const rows = [['活动名称','姓名','性别','手机号或微信','紧急联系人','住址大致位置','报名时间']]
+  allRes.forEach(r => rows.push([r.activities?.name||'', r.name, r.gender||'', r.phone, r.emergency_contact||'', r.address||'', fmtShort(r.created_at)]))
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
+  const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = `预约记录_${new Date().toLocaleDateString('zh-CN')}.csv`; a.click()
+  URL.revokeObjectURL(url)
+}
+
+async function loadSugg() {
+  if (!sb) { document.getElementById('sugg-body').innerHTML = '<tr><td colspan="8" class="empty">请先配置 Supabase</td></tr>'; return }
+  const status = document.getElementById('sugg-filter')?.value
+  let q = sb.from('route_suggestions').select('*').order('created_at', { ascending: false })
+  if (status) q = q.eq('status', status)
+  const { data, error } = await q
+  if (error || !data.length) { document.getElementById('sugg-body').innerHTML = '<tr><td colspan="8" class="empty">暂无记录</td></tr>'; return }
+  const statusMap = { pending: '<span class="badge badge-open">待审核</span>', approved: '<span class="badge" style="background:#cfe2ff;color:#084298">已推荐</span>', rejected: '<span class="badge badge-past">已拒绝</span>' }
+  document.getElementById('sugg-body').innerHTML = data.map(s => {
+    const imgHtml = (s.images && s.images.length) ? `<div class="sugg-imgs">${s.images.map(u => `<img src="${u}" onclick="window.open('${u}')">`).join('')}</div>` : ''
+    const pendingBtns = s.status === 'pending' ? `<button class="btn btn-green btn-sm" onclick="approveSugg('${s.id}')">推荐上线</button><button class="btn btn-ghost btn-sm" onclick="publishSugg('${s.id}')">发布为活动</button><button class="btn btn-gray btn-sm" onclick="rejectSugg('${s.id}')">拒绝</button>` : ''
+    const approvedBtns = s.status === 'approved' ? `<button class="btn btn-ghost btn-sm" onclick="publishSugg('${s.id}')">发布为活动</button>` : ''
+    return `<tr><td><b>${s.name}</b></td><td>${s.location}</td><td>${s.difficulty}</td>
+      <td style="max-width:180px"><div style="white-space:pre-wrap;word-break:break-all">${s.description||'-'}</div>${imgHtml}</td>
+      <td>${s.submitter}</td><td>${s.phone}</td><td>${statusMap[s.status]||s.status}</td>
+      <td><div class="act-row">${pendingBtns}${approvedBtns}<button class="btn btn-red btn-sm" onclick="delSugg('${s.id}','${s.name.replace(/'/g,"\\'")}')">删除</button></div></td></tr>`
+  }).join('')
+}
+function publishSugg(id) {
+  if (!sb) return
+  sb.from('route_suggestions').select('*').eq('id', id).single().then(({ data: s }) => {
+    if (!s) return
+    openActModal()
+    document.getElementById('a-name').value = s.name
+    document.getElementById('a-location').value = s.location
+    document.getElementById('a-diff').value = s.difficulty
+    document.getElementById('a-notes').value = s.description || ''
+    document.getElementById('act-modal').dataset.suggId = id
+    document.getElementById('act-modal-title').textContent = '从路线建议发布活动'
+  })
+}
+async function approveSugg(id) {
+  const { error } = await sb.from('route_suggestions').update({ status: 'approved' }).eq('id', id)
+  if (error) { alert('操作失败：' + error.message); return }
+  loadSugg()
+}
+async function rejectSugg(id) {
+  if (!confirm('确认拒绝此路线建议？')) return
+  const { error } = await sb.from('route_suggestions').update({ status: 'rejected' }).eq('id', id)
+  if (error) { alert('操作失败：' + error.message); return }
+  loadSugg()
+}
+async function delSugg(id, name) {
+  if (!confirm(`确认删除路线建议「${name}」？`)) return
+  const { error } = await sb.from('route_suggestions').delete().eq('id', id)
+  if (error) { alert('删除失败：' + error.message); return }
+  loadSugg()
+}
+function fmtShort(ts) {
+  return new Date(ts).toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
 }
 
 // ── 初始化 ────────────────────────────

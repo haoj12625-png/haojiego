@@ -550,6 +550,8 @@
     <div class="adm-main">
       <div id="adm-tab-acts" class="tab-content active">
         <div class="stats" id="stats-area"></div>
+        <div class="section-label" style="margin-top:0">打赏互动</div>
+        <div class="stats" id="reaction-stats"></div>
         <div class="pg-head">
           <div class="pg-title">全部活动</div>
           <button class="btn btn-green" onclick="openActModal()">＋ 发布新活动</button>
@@ -1268,7 +1270,19 @@ function aRenderImgPreview(previewId, lblId, max) {
   if (lbl) lbl.style.display = (aExistingImgs.length + aImgFiles.length >= max) ? 'none' : 'inline-flex'
 }
 
-async function loadAll() { await Promise.all([loadActs(), loadRes(), loadSugg()]) }
+async function loadAll() { await Promise.all([loadActs(), loadRes(), loadSugg(), loadReactions()]) }
+
+async function loadReactions() {
+  if (!sb) return
+  const { data } = await sb.from('reactions').select('*')
+  if (!data) return
+  const get = id => (data.find(r => r.id === id)?.count || 0)
+  const el = document.getElementById('reaction-stats')
+  if (el) el.innerHTML = `
+    <div class="stat"><div class="n">${get('chicken')}</div><div class="l">🍗 鸡腿</div></div>
+    <div class="stat"><div class="n">${get('rose')}</div><div class="l">🌹 玫瑰</div></div>
+    <div class="stat"><div class="n">${get('poop')}</div><div class="l">💩 粑粑</div></div>`
+}
 
 async function loadActs() {
   if (!sb) { document.getElementById('acts-body').innerHTML = '<tr><td colspan="6" class="empty">请先配置 Supabase</td></tr>'; return }
@@ -1485,7 +1499,7 @@ function fmtShort(ts) {
 }
 
 // ── 打赏互动 ──────────────────────────
-function throwEmoji(emoji, btn) {
+async function throwEmoji(emoji, btn) {
   btn.style.transform = 'scale(0.85)'
   setTimeout(() => btn.style.transform = '', 150)
   for (let i = 0; i < 6; i++) {
@@ -1496,6 +1510,11 @@ function throwEmoji(emoji, btn) {
       document.body.appendChild(el)
       setTimeout(() => el.remove(), 1400)
     }, i * 80)
+  }
+  if (sb) {
+    const id = emoji === '🍗' ? 'chicken' : emoji === '🌹' ? 'rose' : 'poop'
+    const { data } = await sb.from('reactions').select('count').eq('id', id).single()
+    if (data) await sb.from('reactions').update({ count: (data.count || 0) + 1 }).eq('id', id)
   }
 }
 

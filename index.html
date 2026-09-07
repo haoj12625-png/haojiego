@@ -3,13 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>豪姐姐叫你去巡山 🏔️</title>
+  <title>徒步活动预约</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏔️</text></svg>">
-  <meta property="og:title" content="豪姐姐叫你去巡山 🏔️">
-  <meta property="og:description" content="点击查看活动详情并报名，名额有限先到先得！">
-  <meta property="og:url" content="https://haoj12625-png.github.io/haojiego">
-  <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary_large_image">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
@@ -888,10 +883,9 @@ function cardHTML(a, isUpcoming) {
           ${full ? '<span style="color:var(--red);font-weight:600;margin-left:4px">已满</span>' : ''}</div>
         <div class="progress-wrap"><div class="progress-bar ${full ? 'full' : ''}" style="width:${pct}%"></div></div>
       </div>
-      <div class="card-foot" style="display:flex;gap:8px">
+      <div class="card-foot">
         <button class="btn btn-block ${btnDisabled ? 'btn-gray' : 'btn-green'}" ${btnDisabled}
           onclick="${btnDisabled ? '' : `event.stopPropagation();openDisclaimer('${a.id}')`}">${btnLabel}</button>
-        <button class="btn btn-gray" onclick="event.stopPropagation();shareActivity('${a.id}')" style="flex-shrink:0;padding:10px 14px;font-size:16px" title="分享活动">🔗</button>
       </div>
     </div>`
 }
@@ -1462,39 +1456,8 @@ function fmtShort(ts) {
   return new Date(ts).toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
 }
 
-// ── 分享活动 ──────────────────────────
-function shareActivity(id) {
-  const url = `${location.origin}${location.pathname}?aid=${id}`
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(url).then(() => showToast('🔗 链接已复制，发到群里吧！'))
-      .catch(() => fallbackCopy(url))
-  } else {
-    fallbackCopy(url)
-  }
-}
-function fallbackCopy(text) {
-  const el = document.createElement('input')
-  el.value = text
-  document.body.appendChild(el)
-  el.select()
-  document.execCommand('copy')
-  document.body.removeChild(el)
-  showToast('🔗 链接已复制，发到群里吧！')
-}
-function showToast(msg) {
-  const t = document.createElement('div')
-  t.textContent = msg
-  t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#fff;padding:10px 22px;border-radius:20px;font-size:14px;z-index:9999;white-space:nowrap;pointer-events:none'
-  document.body.appendChild(t)
-  setTimeout(() => t.remove(), 2500)
-}
-
 // ── 初始化 ────────────────────────────
-loadActivities().then(() => {
-  // 检测分享链接，自动打开对应活动的免责声明
-  const aid = new URLSearchParams(location.search).get('aid')
-  if (aid) openDisclaimer(aid)
-})
+loadActivities()
 </script>
 </body>
 </html>

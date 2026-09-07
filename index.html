@@ -322,6 +322,26 @@
   </div>
 </main>
 
+<!-- 打赏弹窗 -->
+<div class="overlay" id="pay-modal">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-head">
+      <h2>❤️ 打赏豪姐姐</h2>
+      <button class="x-btn" onclick="document.getElementById('pay-modal').classList.remove('show')">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:20px">
+      <p style="font-size:14px;color:var(--gray);margin-bottom:16px">感谢支持！微信扫码打赏 🙏</p>
+      <img src="pay.jpg" style="width:100%;border-radius:12px">
+    </div>
+  </div>
+</div>
+
+<!-- 打赏悬浮按钮 -->
+<button onclick="document.getElementById('pay-modal').classList.add('show')"
+  style="position:fixed;bottom:24px;right:20px;z-index:300;background:var(--green);color:#fff;border:none;border-radius:50px;padding:12px 18px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.2);display:flex;align-items:center;gap:6px">
+  ❤️ 打赏
+</button>
+
 <!-- 推荐路线弹窗 -->
 <div class="overlay" id="suggest-modal">
   <div class="modal">

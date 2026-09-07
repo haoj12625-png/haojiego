@@ -208,6 +208,7 @@
       nav button { padding: 12px 14px; font-size: 14px; }
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes floatUp { 0% { opacity:1; transform:translateY(0) scale(1); } 100% { opacity:0; transform:translateY(-160px) scale(0.6); } }
     .spinning { display: inline-block; animation: spin 0.7s linear infinite; }
 
     /* ══ 管理面板 ══ */
@@ -333,7 +334,12 @@
     </div>
     <div class="modal-body" style="text-align:center;padding:20px">
       <p style="font-size:14px;color:var(--gray);margin-bottom:16px">感谢支持！微信扫码打赏 🙏</p>
-      <img src="pay.jpg" style="width:100%;border-radius:12px">
+      <img src="pay.jpg" style="width:100%;border-radius:12px;margin-bottom:20px">
+      <div style="display:flex;justify-content:center;gap:16px;margin-top:4px">
+        <button onclick="throwEmoji('🍗',this)" style="background:#fff8f0;border:1.5px solid #ffd6a5;border-radius:14px;padding:10px 18px;font-size:22px;cursor:pointer;transition:transform 0.1s" title="送鸡腿">🍗</button>
+        <button onclick="throwEmoji('🌹',this)" style="background:#fff0f5;border:1.5px solid #ffb3c6;border-radius:14px;padding:10px 18px;font-size:22px;cursor:pointer;transition:transform 0.1s" title="送玫瑰">🌹</button>
+        <button onclick="throwEmoji('🥚',this)" style="background:#f5f5f5;border:1.5px solid #ccc;border-radius:14px;padding:10px 18px;font-size:22px;cursor:pointer;transition:transform 0.1s" title="扔臭鸡蛋">🥚<div style="font-size:10px;color:#999;margin-top:2px">臭鸡蛋</div></button>
+      </div>
     </div>
   </div>
 </div>
@@ -1476,6 +1482,21 @@ async function delSugg(id, name) {
 }
 function fmtShort(ts) {
   return new Date(ts).toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+}
+
+// ── 打赏互动 ──────────────────────────
+function throwEmoji(emoji, btn) {
+  btn.style.transform = 'scale(0.85)'
+  setTimeout(() => btn.style.transform = '', 150)
+  for (let i = 0; i < 6; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div')
+      el.textContent = emoji
+      el.style.cssText = `position:fixed;font-size:${24+Math.random()*16}px;left:${20+Math.random()*60}%;bottom:30%;z-index:9999;pointer-events:none;animation:floatUp 1.4s ease-out forwards`
+      document.body.appendChild(el)
+      setTimeout(() => el.remove(), 1400)
+    }, i * 80)
+  }
 }
 
 // ── 刷新 ──────────────────────────────

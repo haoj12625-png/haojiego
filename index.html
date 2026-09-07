@@ -550,18 +550,13 @@
         <div class="pg-head">
           <div class="pg-title">用户路线建议</div>
           <select id="sugg-filter" onchange="loadSugg()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit">
+            <option value="" selected>全部</option>
             <option value="pending">待审核</option>
             <option value="approved">已推荐</option>
             <option value="rejected">已拒绝</option>
-            <option value="">全部</option>
           </select>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>路线名称</th><th>地点</th><th>难度</th><th>描述</th><th>推荐人</th><th>手机号</th><th>状态</th><th>操作</th></tr></thead>
-            <tbody id="sugg-body"><tr><td colspan="8" class="loading-msg">加载中…</td></tr></tbody>
-          </table>
-        </div>
+        <div id="sugg-body"><div class="loading-msg">加载中…</div></div>
       </div>
     </div>
   </div>
@@ -576,6 +571,7 @@
         <div id="act-alert"></div>
         <div class="fg">
           <div class="f-group fg-full"><label>活动名称 *</label><input type="text" id="a-name" placeholder="如：周末南山徒步"></div>
+          <div class="f-group fg-full"><label>活动发起人 *</label><input type="text" id="a-organizer" placeholder="如：豪姐姐"></div>
           <div class="f-group"><label>活动时间 *</label><input type="datetime-local" id="a-time"></div>
           <div class="f-group"><label>人数上限 *</label><input type="number" id="a-max" placeholder="20" min="1"></div>
           <div class="f-group"><label>地点 *</label><input type="text" id="a-location" placeholder="如：广州南山"></div>
@@ -650,6 +646,11 @@ function routeCardHTML(s) {
         `<img src="${url}" onclick="window.open('${url}')" style="width:90px;height:90px;object-fit:cover;border-radius:8px;cursor:zoom-in">`
       ).join('')}</div>`
     : ''
+  const voted = (JSON.parse(localStorage.getItem('voted_routes') || '[]')).includes(s.id)
+  const voteCount = s.votes || 0
+  const btnStyle = voted
+    ? 'border-color:#adb5bd;background:#f8f9fa;color:#adb5bd;cursor:default'
+    : 'border-color:#e05c8b;background:#fff0f5;color:#e05c8b;cursor:pointer'
   return `<div style="background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.07);margin-bottom:12px">
     <div style="font-size:16px;font-weight:700;margin-bottom:8px">📍 ${s.name}</div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--gray);margin-bottom:8px">
@@ -659,7 +660,34 @@ function routeCardHTML(s) {
     </div>
     ${s.description ? `<div style="font-size:14px;color:#555;line-height:1.7;margin-bottom:4px">${s.description}</div>` : ''}
     ${imgs}
+    <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <button id="vote-btn-${s.id}" onclick="voteRoute('${s.id}',this)" ${voted ? 'disabled' : ''}
+        style="display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:20px;border:1.5px solid;font-size:13px;font-weight:600;transition:all 0.18s;${btnStyle}">
+        ${voted ? '✅ 已点赞' : '❤️ 想去'}&nbsp;<span id="vote-count-${s.id}">${voteCount}</span>
+      </button>
+    </div>
   </div>`
+}
+
+async function voteRoute(id, btn) {
+  if (!sb) return
+  const voted = JSON.parse(localStorage.getItem('voted_routes') || '[]')
+  if (voted.includes(id)) return
+  btn.disabled = true
+  btn.style.opacity = '0.6'
+  const { data, error } = await sb.from('route_suggestions').select('votes').eq('id', id).single()
+  if (error) { btn.disabled = false; btn.style.opacity = '1'; return }
+  const newVotes = (data.votes || 0) + 1
+  const { error: updateErr } = await sb.from('route_suggestions').update({ votes: newVotes }).eq('id', id)
+  if (updateErr) { btn.disabled = false; btn.style.opacity = '1'; return }
+  voted.push(id)
+  localStorage.setItem('voted_routes', JSON.stringify(voted))
+  btn.style.opacity = '1'
+  btn.style.borderColor = '#adb5bd'
+  btn.style.background = '#f8f9fa'
+  btn.style.color = '#adb5bd'
+  btn.style.cursor = 'default'
+  btn.innerHTML = `✅ 已点赞&nbsp;<span id="vote-count-${id}">${newVotes}</span>`
 }
 
 function openSuggestModal() {
@@ -836,10 +864,9 @@ function cardHTML(a, isUpcoming) {
   const past = !isUpcoming
   const btnLabel = past ? '活动已结束' : full ? '名额已满' : !a.is_accepting ? '报名已关闭' : '立即报名'
   const btnDisabled = past || full || !a.is_accepting ? 'disabled' : ''
-  const clickFn = btnDisabled ? '' : `openDisclaimer('${a.id}')`
   const firstImg = a.images && a.images.length ? a.images[0] : null
   return `
-    <div class="card" onclick="${clickFn || `openModal('${a.id}')`}">
+    <div class="card" onclick="openDetail('${a.id}')">
       ${firstImg ? `<img class="card-img" src="${firstImg}" alt="${a.name}">` : ''}
       <div class="card-head">
         <div class="card-title">${a.name}</div>
@@ -848,6 +875,7 @@ function cardHTML(a, isUpcoming) {
       <div class="card-body">
         <div class="info">📍 <em>${a.location}</em></div>
         <div class="info">🚩 集合：<em>${a.meeting_point}</em></div>
+        ${a.organizer ? `<div class="info">👤 发起人：<em>${a.organizer}</em></div>` : ''}
         <div class="info">🏃 ${badge(a.difficulty)} &nbsp;💰 ${fmtCost(a.cost)}</div>
         <div class="info">👥 已报 ${a._count} / ${a.max_participants} 人
           ${full ? '<span style="color:var(--red);font-weight:600;margin-left:4px">已满</span>' : ''}</div>
@@ -858,6 +886,39 @@ function cardHTML(a, isUpcoming) {
           onclick="${btnDisabled ? '' : `event.stopPropagation();openDisclaimer('${a.id}')`}">${btnLabel}</button>
       </div>
     </div>`
+}
+
+// 纯详情弹窗（点卡片时用，不含报名表单）
+async function openDetail(aid) {
+  let a, count
+  if (!sb || aid.startsWith('demo-')) {
+    a = DEMO_ACTS.find(x => x.id === aid)
+    count = a._count || 0
+  } else {
+    const [r1, r2] = await Promise.all([
+      sb.from('activities').select('*').eq('id', aid).single(),
+      sb.from('reservations').select('id').eq('activity_id', aid)
+    ])
+    a = r1.data; count = r2.data ? r2.data.length : 0
+  }
+  document.getElementById('modal-title').textContent = a.name
+  const imgs = a.images || []
+  document.getElementById('modal-gallery').innerHTML = imgs.length
+    ? imgs.map(url => `<img src="${url}" onclick="window.open('${url}')" title="点击查看原图">`).join('')
+    : ''
+  document.getElementById('modal-detail').innerHTML = `
+    <div class="detail-row">📅 <b>时间：</b>${fmt(a.activity_time)}</div>
+    <div class="detail-row">📍 <b>地点：</b>${a.location}</div>
+    <div class="detail-row">🚩 <b>集合：</b>${a.meeting_point}</div>
+    ${a.organizer ? `<div class="detail-row">👤 <b>发起人：</b>${a.organizer}</div>` : ''}
+    <div class="detail-row">🏃 <b>难度：</b>${badge(a.difficulty)}</div>
+    <div class="detail-row">💰 <b>费用：</b>${fmtCost(a.cost)}</div>
+    <div class="detail-row">👥 <b>人数：</b>已报 ${count} / ${a.max_participants} 人</div>
+    ${a.notes ? `<div class="detail-row">📝 <b>注意：</b>${a.notes}</div>` : ''}
+  `
+  document.getElementById('modal-form-wrap').style.display = 'none'
+  document.getElementById('modal-foot').innerHTML = `<button class="btn btn-gray" onclick="closeModal()">关闭</button>`
+  document.getElementById('modal').classList.add('show')
 }
 
 // ── 免责声明弹窗 ──────────────────────
@@ -936,6 +997,7 @@ async function openModal(aid) {
     <div class="detail-row">📅 <b>时间：</b>${fmt(a.activity_time)}</div>
     <div class="detail-row">📍 <b>地点：</b>${a.location}</div>
     <div class="detail-row">🚩 <b>集合：</b>${a.meeting_point}</div>
+    ${a.organizer ? `<div class="detail-row">👤 <b>发起人：</b>${a.organizer}</div>` : ''}
     <div class="detail-row">🏃 <b>难度：</b>${badge(a.difficulty)}</div>
     <div class="detail-row">💰 <b>费用：</b>${fmtCost(a.cost)}</div>
     <div class="detail-row">👥 <b>人数：</b>已报 ${count} / ${a.max_participants} 人</div>
@@ -1195,15 +1257,17 @@ async function loadActs() {
     <div class="stat"><div class="n">${allActs.length}</div><div class="l">总活动数</div></div>
     <div class="stat"><div class="n">${upcoming}</div><div class="l">即将开始</div></div>
     <div class="stat"><div class="n">${(res||[]).length}</div><div class="l">总报名数</div></div>`
-  if (!allActs.length) { document.getElementById('acts-body').innerHTML = '<tr><td colspan="6" class="empty">暂无活动</td></tr>'; return }
-  document.getElementById('acts-body').innerHTML = allActs.map(a => {
-    const past = new Date(a.activity_time) < now
-    const statusBadge = past ? '<span class="badge badge-past">已结束</span>' : a.is_accepting ? '<span class="badge badge-open">报名中</span>' : '<span class="badge badge-closed">已关闭</span>'
-    return `<tr><td><b>${a.name}</b></td><td style="white-space:nowrap">${fmt(a.activity_time)}</td><td>${a.location}</td><td>${a._count} / ${a.max_participants}</td><td>${statusBadge}</td>
-      <td><div class="act-row"><button class="btn btn-gray btn-sm" onclick="openActModal('${a.id}')">编辑</button><button class="btn btn-red btn-sm" onclick="delAct('${a.id}','${a.name.replace(/'/g,"\\'")}')">删除</button></div></td></tr>`
-  }).join('')
+  const displayActs = allActs.filter(a => new Date(a.activity_time) >= now)
+  if (!displayActs.length) { document.getElementById('acts-body').innerHTML = '<tr><td colspan="6" class="empty">暂无进行中的活动</td></tr>'; }
+  else {
+    document.getElementById('acts-body').innerHTML = displayActs.map(a => {
+      const statusBadge = a.is_accepting ? '<span class="badge badge-open">报名中</span>' : '<span class="badge badge-closed">已关闭</span>'
+      return `<tr><td><b>${a.name}</b></td><td style="white-space:nowrap">${fmt(a.activity_time)}</td><td>${a.location}</td><td>${a._count} / ${a.max_participants}</td><td>${statusBadge}</td>
+        <td><div class="act-row"><button class="btn btn-gray btn-sm" onclick="openActModal('${a.id}')">编辑</button><button class="btn btn-red btn-sm" onclick="delAct('${a.id}','${a.name.replace(/'/g,"\\'")}')">删除</button></div></td></tr>`
+    }).join('')
+  }
   const sel = document.getElementById('act-filter')
-  sel.innerHTML = '<option value="">全部活动</option>' + allActs.map(a => `<option value="${a.id}">${a.name}</option>`).join('')
+  sel.innerHTML = '<option value="">全部活动</option>' + displayActs.map(a => `<option value="${a.id}">${a.name}</option>`).join('')
 }
 
 async function loadRes() {
@@ -1213,8 +1277,9 @@ async function loadRes() {
   if (actId) q = q.eq('activity_id', actId)
   const { data, error } = await q
   if (error) { document.getElementById('res-body').innerHTML = '<tr><td colspan="8" class="empty">加载失败</td></tr>'; return }
-  allRes = data || []
-  if (!allRes.length) { document.getElementById('res-body').innerHTML = '<tr><td colspan="8" class="empty">暂无预约记录</td></tr>'; return }
+  const resNow = new Date()
+  allRes = (data || []).filter(r => r.activities && new Date(r.activities.activity_time) >= resNow)
+  if (!allRes.length) { document.getElementById('res-body').innerHTML = '<tr><td colspan="8" class="empty">暂无进行中活动的预约记录</td></tr>'; return }
   document.getElementById('res-body').innerHTML = allRes.map(r => `<tr>
     <td>${r.activities?.name || '-'}</td><td>${r.name}</td><td>${r.gender || '-'}</td><td>${r.phone}</td>
     <td>${r.emergency_contact || '-'}</td><td>${r.address || '-'}</td>
@@ -1231,9 +1296,10 @@ function openActModal(id) {
   if (id) {
     const a = allActs.find(x => x.id === id)
     if (a) {
-      document.getElementById('a-name').value     = a.name
-      document.getElementById('a-time').value     = new Date(new Date(a.activity_time) - new Date().getTimezoneOffset()*60000).toISOString().slice(0, 16)
-      document.getElementById('a-location').value = a.location
+      document.getElementById('a-name').value      = a.name
+      document.getElementById('a-organizer').value = a.organizer || ''
+      document.getElementById('a-time').value      = new Date(new Date(a.activity_time) - new Date().getTimezoneOffset()*60000).toISOString().slice(0, 16)
+      document.getElementById('a-location').value  = a.location
       document.getElementById('a-meeting').value  = a.meeting_point
       document.getElementById('a-diff').value     = a.difficulty
       document.getElementById('a-cost').value     = a.cost
@@ -1243,7 +1309,8 @@ function openActModal(id) {
       aExistingImgs = a.images ? [...a.images] : []
     }
   } else {
-    document.getElementById('a-name').value = ''; document.getElementById('a-time').value = ''
+    document.getElementById('a-name').value = ''; document.getElementById('a-organizer').value = ''
+    document.getElementById('a-time').value = ''
     document.getElementById('a-location').value = ''; document.getElementById('a-meeting').value = ''
     document.getElementById('a-diff').value = '中等'; document.getElementById('a-cost').value = '0'
     document.getElementById('a-max').value = ''; document.getElementById('a-notes').value = ''
@@ -1255,23 +1322,24 @@ function openActModal(id) {
 function closeActModal() { document.getElementById('act-modal').classList.remove('show'); delete document.getElementById('act-modal').dataset.suggId }
 
 async function saveAct() {
-  const name = document.getElementById('a-name').value.trim()
-  const time = new Date(document.getElementById('a-time').value).toISOString()
-  const loc  = document.getElementById('a-location').value.trim()
-  const meet = document.getElementById('a-meeting').value.trim()
-  const diff = document.getElementById('a-diff').value
-  const cost = parseFloat(document.getElementById('a-cost').value) || 0
-  const maxP = parseInt(document.getElementById('a-max').value)
-  const notes = document.getElementById('a-notes').value.trim()
-  const isOpen = document.getElementById('a-open').checked
-  const alertEl = document.getElementById('act-alert')
-  if (!name || !time || !loc || !meet || !maxP) { alertEl.innerHTML = '<div class="alert alert-err">请填写所有带 * 的必填项</div>'; return }
+  const name      = document.getElementById('a-name').value.trim()
+  const organizer = document.getElementById('a-organizer').value.trim()
+  const time      = new Date(document.getElementById('a-time').value).toISOString()
+  const loc       = document.getElementById('a-location').value.trim()
+  const meet      = document.getElementById('a-meeting').value.trim()
+  const diff      = document.getElementById('a-diff').value
+  const cost      = parseFloat(document.getElementById('a-cost').value) || 0
+  const maxP      = parseInt(document.getElementById('a-max').value)
+  const notes     = document.getElementById('a-notes').value.trim()
+  const isOpen    = document.getElementById('a-open').checked
+  const alertEl   = document.getElementById('act-alert')
+  if (!name || !organizer || !time || !loc || !meet || !maxP) { alertEl.innerHTML = '<div class="alert alert-err">请填写所有带 * 的必填项</div>'; return }
   const btn = document.getElementById('save-act-btn')
   btn.disabled = true; btn.textContent = '上传图片中…'
   const newUrls = await uploadImages(aImgFiles, 'activities')
   const images  = [...aExistingImgs, ...newUrls]
   btn.textContent = '保存中…'
-  const payload = { name, activity_time: time, location: loc, meeting_point: meet, difficulty: diff, cost, max_participants: maxP, notes, is_accepting: isOpen, images }
+  const payload = { name, organizer, activity_time: time, location: loc, meeting_point: meet, difficulty: diff, cost, max_participants: maxP, notes, is_accepting: isOpen, images }
   const { error } = editId ? await sb.from('activities').update(payload).eq('id', editId) : await sb.from('activities').insert(payload)
   btn.disabled = false; btn.textContent = '保存'
   if (error) { alertEl.innerHTML = `<div class="alert alert-err">保存失败：${error.message}</div>`; return }
@@ -1305,21 +1373,51 @@ function exportCSV() {
 }
 
 async function loadSugg() {
-  if (!sb) { document.getElementById('sugg-body').innerHTML = '<tr><td colspan="8" class="empty">请先配置 Supabase</td></tr>'; return }
+  const el = document.getElementById('sugg-body')
+  if (!sb) { el.innerHTML = '<div class="empty">请先配置 Supabase</div>'; return }
+  el.innerHTML = '<div class="loading-msg">加载中…</div>'
   const status = document.getElementById('sugg-filter')?.value
   let q = sb.from('route_suggestions').select('*').order('created_at', { ascending: false })
   if (status) q = q.eq('status', status)
   const { data, error } = await q
-  if (error || !data.length) { document.getElementById('sugg-body').innerHTML = '<tr><td colspan="8" class="empty">暂无记录</td></tr>'; return }
-  const statusMap = { pending: '<span class="badge badge-open">待审核</span>', approved: '<span class="badge" style="background:#cfe2ff;color:#084298">已推荐</span>', rejected: '<span class="badge badge-past">已拒绝</span>' }
-  document.getElementById('sugg-body').innerHTML = data.map(s => {
-    const imgHtml = (s.images && s.images.length) ? `<div class="sugg-imgs">${s.images.map(u => `<img src="${u}" onclick="window.open('${u}')">`).join('')}</div>` : ''
-    const pendingBtns = s.status === 'pending' ? `<button class="btn btn-green btn-sm" onclick="approveSugg('${s.id}')">推荐上线</button><button class="btn btn-ghost btn-sm" onclick="publishSugg('${s.id}')">发布为活动</button><button class="btn btn-gray btn-sm" onclick="rejectSugg('${s.id}')">拒绝</button>` : ''
-    const approvedBtns = s.status === 'approved' ? `<button class="btn btn-ghost btn-sm" onclick="publishSugg('${s.id}')">发布为活动</button>` : ''
-    return `<tr><td><b>${s.name}</b></td><td>${s.location}</td><td>${s.difficulty}</td>
-      <td style="max-width:180px"><div style="white-space:pre-wrap;word-break:break-all">${s.description||'-'}</div>${imgHtml}</td>
-      <td>${s.submitter}</td><td>${s.phone}</td><td>${statusMap[s.status]||s.status}</td>
-      <td><div class="act-row">${pendingBtns}${approvedBtns}<button class="btn btn-red btn-sm" onclick="delSugg('${s.id}','${s.name.replace(/'/g,"\\'")}')">删除</button></div></td></tr>`
+  if (error || !data || !data.length) { el.innerHTML = '<div class="empty"><div class="eicon">🗺️</div><div>暂无记录</div></div>'; return }
+  const statusMap = {
+    pending:  '<span class="badge badge-open">待审核</span>',
+    approved: '<span class="badge" style="background:#cfe2ff;color:#084298">已推荐</span>',
+    rejected: '<span class="badge badge-past">已拒绝</span>'
+  }
+  el.innerHTML = data.map(s => {
+    const voteCount = s.votes || 0
+    const nameColor = voteCount >= 10 ? `color:var(--green)` : ''
+    const votesBadge = voteCount > 0 ? `<span style="font-size:13px;color:#e05c8b;margin-left:10px">❤️ ${voteCount} 想去</span>` : ''
+    const imgHtml = (s.images && s.images.length)
+      ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">${s.images.map(u => `<img src="${u}" onclick="window.open('${u}')" style="width:80px;height:80px;object-fit:cover;border-radius:8px;cursor:zoom-in">`).join('')}</div>`
+      : ''
+    const pendingBtns = s.status === 'pending'
+      ? `<button class="btn btn-green btn-sm" onclick="approveSugg('${s.id}')">推荐上线</button><button class="btn btn-ghost btn-sm" onclick="publishSugg('${s.id}')">发布为活动</button><button class="btn btn-gray btn-sm" onclick="rejectSugg('${s.id}')">拒绝</button>`
+      : ''
+    const approvedBtns = s.status === 'approved'
+      ? `<button class="btn btn-ghost btn-sm" onclick="publishSugg('${s.id}')">发布为活动</button>`
+      : ''
+    return `<div style="background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.07);margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px">
+        <div><span style="font-size:16px;font-weight:700;${nameColor}">📍 ${s.name}</span>${votesBadge}</div>
+        <div style="flex-shrink:0">${statusMap[s.status] || s.status}</div>
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--gray);margin-bottom:8px">
+        <span>🌍 ${s.location}</span>
+        <span>${badge(s.difficulty)}</span>
+        <span>👤 ${s.submitter}</span>
+        <span>📱 ${s.phone}</span>
+        <span>🕐 ${fmtShort(s.created_at)}</span>
+      </div>
+      ${s.description ? `<div style="font-size:14px;color:#555;line-height:1.7">${s.description}</div>` : ''}
+      ${imgHtml}
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        ${pendingBtns}${approvedBtns}
+        <button class="btn btn-red btn-sm" onclick="delSugg('${s.id}','${s.name.replace(/'/g,"\\'")}')">删除</button>
+      </div>
+    </div>`
   }).join('')
 }
 function publishSugg(id) {

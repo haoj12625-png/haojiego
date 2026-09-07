@@ -286,7 +286,7 @@
   <button data-tab="past" onclick="switchTab(this)">往期活动</button>
   <button data-tab="suggest" onclick="switchTab(this)">推荐路线</button>
   <button data-tab="mine" onclick="switchTab(this)">我的预约</button>
-  <button onclick="location.reload()" style="margin-left:auto;border:none;background:none;font-size:18px;cursor:pointer;padding:14px 16px;color:var(--gray)" title="刷新">↻</button>
+  <button onclick="loadActivities();if(document.getElementById('tab-suggest').classList.contains('active'))loadRoutes()" style="margin-left:auto;border:none;background:none;font-size:18px;cursor:pointer;padding:14px 16px;color:var(--gray)" title="刷新">↻</button>
 </nav>
 
 <main>
